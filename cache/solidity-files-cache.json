@@ -1,0 +1,384 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/Users/mac/Desktop/CODES/HACKATHON/DORAHACKS/HEDERA/track1-afriland-rwa/contracts/DividendDistributor.sol": {
+      "lastModificationDate": 1755060721455,
+      "contentHash": "3e567fb218784b5180204e235835f93a",
+      "sourceName": "contracts/DividendDistributor.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./interfaces/IHederaTokenService.sol",
+        "./interfaces/IPropertyToken.sol",
+        "./interfaces/IDividendDistributor.sol",
+        "./security/AccessControl.sol",
+        "./security/ReentrancyGuard.sol",
+        "./utils/SafeMath.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "DividendDistributor"
+      ]
+    },
+    "/Users/mac/Desktop/CODES/HACKATHON/DORAHACKS/HEDERA/track1-afriland-rwa/contracts/interfaces/IHederaTokenService.sol": {
+      "lastModificationDate": 1755059737777,
+      "contentHash": "0461f5b904bcc728a25b49add081eaf5",
+      "sourceName": "contracts/interfaces/IHederaTokenService.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "IHederaTokenService"
+      ]
+    },
+    "/Users/mac/Desktop/CODES/HACKATHON/DORAHACKS/HEDERA/track1-afriland-rwa/contracts/interfaces/IPropertyToken.sol": {
+      "lastModificationDate": 1755059760793,
+      "contentHash": "1efe9ea732cd843e359ecb3871b8339e",
+      "sourceName": "contracts/interfaces/IPropertyToken.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "IPropertyToken"
+      ]
+    },
+    "/Users/mac/Desktop/CODES/HACKATHON/DORAHACKS/HEDERA/track1-afriland-rwa/contracts/interfaces/IDividendDistributor.sol": {
+      "lastModificationDate": 1755059877210,
+      "contentHash": "05ff2fd813b609e449e3c74c0c9d437a",
+      "sourceName": "contracts/interfaces/IDividendDistributor.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "IDividendDistributor"
+      ]
+    },
+    "/Users/mac/Desktop/CODES/HACKATHON/DORAHACKS/HEDERA/track1-afriland-rwa/contracts/security/AccessControl.sol": {
+      "lastModificationDate": 1755059779429,
+      "contentHash": "4487e2e74a3fdee1c6b4b3d23b048dc8",
+      "sourceName": "contracts/security/AccessControl.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "AccessControl"
+      ]
+    },
+    "/Users/mac/Desktop/CODES/HACKATHON/DORAHACKS/HEDERA/track1-afriland-rwa/contracts/security/ReentrancyGuard.sol": {
+      "lastModificationDate": 1755059792454,
+      "contentHash": "e07090e6038bd136ecc2a9c69cacfb08",
+      "sourceName": "contracts/security/ReentrancyGuard.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "ReentrancyGuard"
+      ]
+    },
+    "/Users/mac/Desktop/CODES/HACKATHON/DORAHACKS/HEDERA/track1-afriland-rwa/contracts/utils/SafeMath.sol": {
+      "lastModificationDate": 1755059808667,
+      "contentHash": "f5af4ca6ef3c0a6e1d0d1c38750a7bb7",
+      "sourceName": "contracts/utils/SafeMath.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "SafeMath"
+      ]
+    },
+    "/Users/mac/Desktop/CODES/HACKATHON/DORAHACKS/HEDERA/track1-afriland-rwa/contracts/PropertyToken.sol": {
+      "lastModificationDate": 1755060906853,
+      "contentHash": "09b9eef7694f984bd4fcef613c00f4c8",
+      "sourceName": "contracts/PropertyToken.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./interfaces/IHederaTokenService.sol",
+        "./interfaces/IPropertyToken.sol",
+        "./security/AccessControl.sol",
+        "./security/ReentrancyGuard.sol",
+        "./utils/SafeMath.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "PropertyToken"
+      ]
+    },
+    "/Users/mac/Desktop/CODES/HACKATHON/DORAHACKS/HEDERA/track1-afriland-rwa/contracts/PropertyGovernance.sol": {
+      "lastModificationDate": 1755060890113,
+      "contentHash": "bd67199c3a53ecf0c6f43cfc2b233389",
+      "sourceName": "contracts/PropertyGovernance.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./interfaces/IPropertyToken.sol",
+        "./interfaces/IPropertyGovernance.sol",
+        "./security/AccessControl.sol",
+        "./security/ReentrancyGuard.sol",
+        "./utils/SafeMath.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "PropertyGovernance"
+      ]
+    },
+    "/Users/mac/Desktop/CODES/HACKATHON/DORAHACKS/HEDERA/track1-afriland-rwa/contracts/interfaces/IPropertyGovernance.sol": {
+      "lastModificationDate": 1755059975468,
+      "contentHash": "f818878d64d3b6ae576315f96beb6710",
+      "sourceName": "contracts/interfaces/IPropertyGovernance.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "IPropertyGovernance"
+      ]
+    }
+  }
+}
