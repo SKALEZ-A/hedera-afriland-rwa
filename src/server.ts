@@ -1,151 +1,110 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import dotenv from 'dotenv';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
-
-import { errorHandler, notFound } from './middleware/errorMiddleware';
+import app from './app';
 import { logger } from './utils/logger';
-import { connectDatabase } from './config/database';
+import { connectDatabase } from './utils/database';
 import { connectRedis } from './config/redis';
-import { initializeHedera } from './config/hedera';
-import { HederaHealthChecker } from './utils/hederaHealth';
+import { initializeAllMonitoring } from './utils/monitoringSetup';
+import { HederaService } from './services/HederaService';
+import { createServer } from 'http';
+import { WebSocketServer } from 'ws';
+import { NotificationService } from './services/NotificationService';
 
-// Load environment variables
-dotenv.config();
+const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '0.0.0.0';
 
-const app = express();
-const server = createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["GET", "POST"]
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(helmet());
-app.use(cors());
-app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Health check endpoint
-app.get('/health', async (req, res) => {
-  try {
-    const hederaHealth = await HederaHealthChecker.performHealthCheck();
-    
-    res.status(hederaHealth.isHealthy ? 200 : 503).json({
-      status: hederaHealth.isHealthy ? 'OK' : 'UNHEALTHY',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development',
-      hedera: {
-        network: hederaHealth.network,
-        operatorAccount: hederaHealth.operatorAccountId,
-        balance: hederaHealth.accountBalance,
-        isHealthy: hederaHealth.isHealthy,
-        errors: hederaHealth.errors,
-        warnings: hederaHealth.warnings
-      }
-    });
-  } catch (error) {
-    res.status(503).json({
-      status: 'ERROR',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development',
-      error: 'Health check failed'
-    });
-  }
-});
-
-// Import routes
-import authRoutes from './routes/authRoutes';
-import propertyRoutes from './routes/propertyRoutes';
-import investmentRoutes from './routes/investmentRoutes';
-
-// API routes
-app.get('/api/v1', (req, res) => {
-  res.json({
-    message: 'GlobalLand RWA Platform API',
-    version: '1.0.0',
-    documentation: '/api/v1/docs'
-  });
-});
-
-// Authentication routes
-app.use('/api/auth', authRoutes);
-
-// Property management routes
-app.use('/api/properties', propertyRoutes);
-
-// Investment routes
-app.use('/api/investments', investmentRoutes);
-
-// Error handling middleware
-app.use(notFound);
-app.use(errorHandler);
-
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  logger.info(`Client connected: ${socket.id}`);
-  
-  socket.on('disconnect', () => {
-    logger.info(`Client disconnected: ${socket.id}`);
-  });
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    logger.info('Process terminated');
-    process.exit(0);
-  });
-});
-
-process.on('SIGINT', () => {
-  logger.info('SIGINT received, shutting down gracefully');
-  server.close(() => {
-    logger.info('Process terminated');
-    process.exit(0);
-  });
-});
-
-// Start server
 async function startServer() {
   try {
+    // Initialize monitoring first
+    logger.info('Initializing monitoring services...');
+    await initializeAllMonitoring();
+    logger.info('Monitoring services initialized successfully');
+
     // Initialize database connection
+    logger.info('Connecting to database...');
     await connectDatabase();
     logger.info('Database connected successfully');
 
     // Initialize Redis connection
+    logger.info('Connecting to Redis...');
     await connectRedis();
     logger.info('Redis connected successfully');
 
-    // Initialize Hedera client
-    await initializeHedera();
-    logger.info('Hedera client initialized successfully');
+    // Initialize Hedera service
+    logger.info('Initializing Hedera service...');
+    const hederaService = new HederaService();
+    await hederaService.initialize();
+    logger.info('Hedera service initialized successfully');
 
-    // Start Hedera health monitoring
-    HederaHealthChecker.startPeriodicHealthCheck(300000); // Every 5 minutes
-    logger.info('Hedera health monitoring started');
+    // Create HTTP server
+    const server = createServer(app);
 
-    // Start the server
-    server.listen(PORT, () => {
-      logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+    // Initialize WebSocket server for real-time notifications
+    const wss = new WebSocketServer({ server, path: '/ws' });
+    const notificationService = new NotificationService();
+
+    wss.on('connection', (ws, req) => {
+      const url = new URL(req.url!, `http://${req.headers.host}`);
+      const userId = url.searchParams.get('userId');
+
+      if (userId) {
+        notificationService.registerWebSocketClient(userId, ws);
+        logger.info('WebSocket client connected', { userId });
+
+        ws.send(JSON.stringify({
+          type: 'connection_established',
+          data: {
+            message: 'Connected to GlobalLand real-time notifications',
+            timestamp: new Date().toISOString()
+          }
+        }));
+      } else {
+        ws.close(1008, 'User ID required');
+      }
+
+      ws.on('error', (error) => {
+        logger.error('WebSocket error', { error, userId });
+      });
     });
+
+    // Start server
+    server.listen(PORT, HOST, () => {
+      logger.info('Server started successfully', {
+        port: PORT,
+        host: HOST,
+        environment: process.env.NODE_ENV || 'development',
+        nodeVersion: process.version
+      });
+
+      // Log available endpoints
+      logger.info('Available API endpoints:', {
+        health: `http://${HOST}:${PORT}/health`,
+        api: `http://${HOST}:${PORT}/api`,
+        auth: `http://${HOST}:${PORT}/api/auth`,
+        properties: `http://${HOST}:${PORT}/api/properties`,
+        investments: `http://${HOST}:${PORT}/api/investments`,
+        payments: `http://${HOST}:${PORT}/api/payments`,
+        dividends: `http://${HOST}:${PORT}/api/dividends`,
+        trading: `http://${HOST}:${PORT}/api/trading`,
+        notifications: `http://${HOST}:${PORT}/api/notifications`,
+        websocket: `ws://${HOST}:${PORT}/ws`
+      });
+    });
+
+    // Handle server errors
+    server.on('error', (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        logger.error(`Port ${PORT} is already in use`);
+        process.exit(1);
+      } else {
+        logger.error('Server error', { error });
+        process.exit(1);
+      }
+    });
+
   } catch (error) {
-    logger.error('Failed to start server:', error);
+    logger.error('Failed to start server', { error });
     process.exit(1);
   }
 }
 
+// Start the server
 startServer();
-
-export { app, io };

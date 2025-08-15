@@ -1,0 +1,27 @@
+{
+  "name": "GlobalLand",
+  "displayName": "GlobalLand - Real Estate Investment",
+  "version": "1.0.0",
+  "description": "Tokenized real estate investment platform for African markets",
+  "orientation": "portrait",
+  "icon": "./assets/icon.png",
+  "splash": {
+    "image": "./assets/splash.png",
+    "resizeMode": "contain",
+    "backgroundColor": "#ffffff"
+  },
+  "platforms": ["ios", "android"],
+  "ios": {
+    "bundleIdentifier": "com.globalland.mobile",
+    "buildNumber": "1.0.0",
+    "supportsTablet": true
+  },
+  "android": {
+    "package": "com.globalland.mobile",
+    "versionCode": 1,
+    "adaptiveIcon": {
+      "foregroundImage": "./assets/adaptive-icon.png",
+      "backgroundColor": "#FFFFFF"
+    }
+  }
+}

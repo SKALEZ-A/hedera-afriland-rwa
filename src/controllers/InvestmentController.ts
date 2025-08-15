@@ -396,4 +396,68 @@ export class InvestmentController {
       });
     }
   };
+
+  /**
+   * Get detailed investment analytics
+   * GET /api/investments/analytics
+   */
+  getInvestmentAnalytics = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      const analytics = await this.investmentService.getInvestmentAnalytics(userId);
+
+      res.json({
+        success: true,
+        data: analytics
+      });
+
+    } catch (error) {
+      logger.error('Failed to fetch investment analytics', {
+        userId: req.user?.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      res.status(500).json({
+        error: 'Failed to fetch investment analytics',
+        message: 'An unexpected error occurred'
+      });
+    }
+  };
+
+  /**
+   * Update portfolio values
+   * POST /api/investments/portfolio/update-values
+   */
+  updatePortfolioValues = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      await this.investmentService.updatePortfolioValues(userId);
+
+      res.json({
+        success: true,
+        message: 'Portfolio values updated successfully'
+      });
+
+    } catch (error) {
+      logger.error('Failed to update portfolio values', {
+        userId: req.user?.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      res.status(500).json({
+        error: 'Failed to update portfolio values',
+        message: 'An unexpected error occurred'
+      });
+    }
+  };
 }

@@ -1,0 +1,281 @@
+version: '3.8'
+
+services:
+  # Main application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: globalland/rwa-platform:latest
+    container_name: globalland-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - HEDERA_ACCOUNT_ID=${HEDERA_ACCOUNT_ID}
+      - HEDERA_PRIVATE_KEY=${HEDERA_PRIVATE_KEY}
+      - HEDERA_NETWORK=${HEDERA_NETWORK}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+    volumes:
+      - app-logs:/app/logs
+      - app-uploads:/app/uploads
+      - app-backups:/app/backups
+    depends_on:
+      - postgres-primary
+      - redis-cluster
+    networks:
+      - globalland-network
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  # Load balancer
+  nginx:
+    image: nginx:alpine
+    container_name: globalland-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-cache:/var/cache/nginx
+    depends_on:
+      - app
+    networks:
+      - globalland-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # Primary PostgreSQL database
+  postgres-primary:
+    image: postgres:15-alpine
+    container_name: globalland-postgres-primary
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_REPLICATION_USER=${POSTGRES_REPLICATION_USER}
+      - POSTGRES_REPLICATION_PASSWORD=${POSTGRES_REPLICATION_PASSWORD}
+    volumes:
+      - postgres-primary-data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+      - ./database/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - globalland-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    command: >
+      postgres
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c wal_level=replica
+      -c max_wal_senders=3
+      -c max_replication_slots=3
+
+  # PostgreSQL replica for read operations
+  postgres-replica:
+    image: postgres:15-alpine
+    container_name: globalland-postgres-replica
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGUSER=${POSTGRES_REPLICATION_USER}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_replication_password
+    volumes:
+      - postgres-replica-data:/var/lib/postgresql/data
+    depends_on:
+      - postgres-primary
+    networks:
+      - globalland-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    command: >
+      bash -c "
+      until pg_basebackup --pgdata=/var/lib/postgresql/data -R --slot=replication_slot --host=postgres-primary --port=5432
+      do
+        echo 'Waiting for primary to connect...'
+        sleep 1s
+      done
+      echo 'Backup done, starting replica...'
+      chmod 0700 /var/lib/postgresql/data
+      postgres
+      "
+
+  # Redis cluster setup
+  redis-cluster:
+    image: redis:7-alpine
+    container_name: globalland-redis-cluster
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - globalland-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    command: redis-server /usr/local/etc/redis/redis.conf
+
+  # Redis Sentinel for high availability
+  redis-sentinel:
+    image: redis:7-alpine
+    container_name: globalland-redis-sentinel
+    restart: unless-stopped
+    volumes:
+      - ./redis/sentinel.conf:/usr/local/etc/redis/sentinel.conf:ro
+    depends_on:
+      - redis-cluster
+    networks:
+      - globalland-network
+    command: redis-sentinel /usr/local/etc/redis/sentinel.conf
+
+  # Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: globalland-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - globalland-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # Grafana for monitoring dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: globalland-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - globalland-network
+
+  # Log aggregation with ELK stack
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: globalland-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - globalland-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.8.0
+    container_name: globalland-logstash
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - app-logs:/app/logs:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - globalland-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.8.0
+    container_name: globalland-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - globalland-network
+
+volumes:
+  postgres-primary-data:
+    driver: local
+  postgres-replica-data:
+    driver: local
+  redis-data:
+    driver: local
+  app-logs:
+    driver: local
+  app-uploads:
+    driver: local
+  app-backups:
+    driver: local
+  nginx-cache:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  elasticsearch-data:
+    driver: local
+
+networks:
+  globalland-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+secrets:
+  postgres_replication_password:
+    file: ./secrets/postgres_replication_password.txt

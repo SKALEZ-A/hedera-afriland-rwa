@@ -1,8 +1,7 @@
 import { UserModel } from '../models/UserModel';
-import { TransactionModel } from '../models/TransactionModel';
-import { User, Transaction, AuditLog } from '../types/entities';
+import { Transaction, AuditLog } from '../types/entities';
 import { logger } from '../utils/logger';
-import { KYCService, AMLScreeningResult } from './KYCService';
+import { KYCService } from './KYCService';
 
 export interface ComplianceReport {
   reportId: string;
@@ -44,13 +43,13 @@ export interface TransactionMonitoringRule {
 
 export class ComplianceService {
   private userModel: UserModel;
-  private transactionModel: TransactionModel;
+  // private transactionModel: TransactionModel; // Commented out as not used in current implementation
   private kycService: KYCService;
   private monitoringRules: TransactionMonitoringRule[];
 
   constructor() {
     this.userModel = new UserModel();
-    this.transactionModel = new TransactionModel();
+    // this.transactionModel = new TransactionModel(); // Commented out as not used in current implementation
     this.kycService = new KYCService();
     this.monitoringRules = this.initializeMonitoringRules();
   }
@@ -109,7 +108,7 @@ export class ComplianceService {
       return report;
     } catch (error) {
       logger.error('Failed to generate compliance report', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         reportType,
         startDate,
         endDate
@@ -145,7 +144,7 @@ export class ComplianceService {
       return alerts;
     } catch (error) {
       logger.error('Transaction monitoring failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         transactionId: transaction.id
       });
       return [];
@@ -250,7 +249,7 @@ export class ComplianceService {
       };
     } catch (error) {
       logger.error('Enhanced due diligence failed', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         userId
       });
       throw error;
@@ -266,7 +265,7 @@ export class ComplianceService {
       logger.info('Audit event recorded', event);
     } catch (error) {
       logger.error('Failed to record audit event', {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         event
       });
     }
@@ -467,7 +466,7 @@ export class ComplianceService {
   /**
    * Generate report summary
    */
-  private async generateReportSummary(startDate: Date, endDate: Date): Promise<ComplianceReport['summary']> {
+  private async generateReportSummary(_startDate: Date, _endDate: Date): Promise<ComplianceReport['summary']> {
     const userStats = await this.userModel.getUserStats();
     
     return {
@@ -481,7 +480,7 @@ export class ComplianceService {
   /**
    * Get recent transactions for user
    */
-  private async getRecentTransactions(userId: string, days: number): Promise<Transaction[]> {
+  private async getRecentTransactions(_userId: string, _days: number): Promise<Transaction[]> {
     // Mock implementation - in production, query actual transaction data
     return [];
   }
@@ -489,7 +488,7 @@ export class ComplianceService {
   /**
    * Get transactions since date
    */
-  private async getTransactionsSince(userId: string, since: Date): Promise<Transaction[]> {
+  private async getTransactionsSince(_userId: string, _since: Date): Promise<Transaction[]> {
     // Mock implementation - in production, query actual transaction data
     return [];
   }
@@ -533,8 +532,8 @@ export class ComplianceService {
 
     return [...new Set(recommendations)]; // Remove duplicates
   }
-} 
- /**
+
+  /**
    * Check investment limits for compliance
    */
   async checkInvestmentLimits(userId: string, investmentAmount: number): Promise<{
@@ -583,10 +582,15 @@ export class ComplianceService {
         warnings.push('Investment amount approaching transaction limit');
       }
 
-      return { 
-        allowed: true, 
-        warnings: warnings.length > 0 ? warnings : undefined 
+      const result: { allowed: boolean; reason?: string; warnings?: string[] } = { 
+        allowed: true
       };
+      
+      if (warnings.length > 0) {
+        result.warnings = warnings;
+      }
+      
+      return result;
 
     } catch (error) {
       logger.error('Investment limit check failed', { userId, investmentAmount, error });
@@ -606,7 +610,7 @@ export class ComplianceService {
     blockchainTxId: string;
   }): Promise<void> {
     try {
-      await this.recordAuditEvent({
+      const auditEvent: Omit<AuditLog, 'id' | 'createdAt'> = {
         userId: event.userId,
         action: 'investment_purchase',
         resourceType: 'investment',
@@ -616,10 +620,10 @@ export class ComplianceService {
           investmentAmount: event.investmentAmount,
           tokenAmount: event.tokenAmount,
           blockchainTxId: event.blockchainTxId
-        },
-        ipAddress: undefined, // Would be passed from request context
-        userAgent: undefined
-      });
+        }
+      };
+
+      await this.recordAuditEvent(auditEvent);
 
       logger.info('Investment event logged for compliance', {
         userId: event.userId,
@@ -644,16 +648,16 @@ export class ComplianceService {
     timestamp: Date;
   }): Promise<void> {
     try {
-      await this.recordAuditEvent({
+      const auditEvent: Omit<AuditLog, 'id' | 'createdAt'> = {
         userId: event.userId,
         action: 'investment_status_change',
         resourceType: 'investment',
         resourceId: event.investmentId,
         oldValues: { status: event.oldStatus },
-        newValues: { status: event.newStatus },
-        ipAddress: undefined,
-        userAgent: undefined
-      });
+        newValues: { status: event.newStatus }
+      };
+
+      await this.recordAuditEvent(auditEvent);
 
       logger.info('Investment status change logged', {
         investmentId: event.investmentId,
@@ -714,8 +718,8 @@ export class ComplianceService {
   /**
    * Get daily investment total for user (mock implementation)
    */
-  private async getDailyInvestmentTotal(userId: string): Promise<number> {
+  private async getDailyInvestmentTotal(_userId: string): Promise<number> {
     // In production, this would query actual transaction data
     // For now, return a mock value
     return 0;
-  }
+  }}

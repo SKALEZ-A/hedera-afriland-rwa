@@ -16,6 +16,7 @@ import { PropertyModel } from '../models/PropertyModel';
 import { UserModel } from '../models/UserModel';
 import { HederaService } from './HederaService';
 import { ComplianceService } from './ComplianceService';
+import { NotificationService } from './NotificationService';
 import { logger } from '../utils/logger';
 
 export interface InvestmentPurchaseRequest {
@@ -54,6 +55,7 @@ export class InvestmentService {
   private userModel: UserModel;
   private hederaService: HederaService;
   private complianceService: ComplianceService;
+  private notificationService: NotificationService;
 
   constructor() {
     this.investmentModel = new InvestmentModel();
@@ -62,6 +64,7 @@ export class InvestmentService {
     this.userModel = new UserModel();
     this.hederaService = new HederaService();
     this.complianceService = new ComplianceService();
+    this.notificationService = new NotificationService();
   }
 
   /**
@@ -104,7 +107,7 @@ export class InvestmentService {
       const netAmount = totalAmount + platformFee;
 
       // 4. Create pending transaction
-      const transaction = await this.transactionModel.createTransaction({
+      const transactionData: any = {
         userId: request.userId,
         propertyId: request.propertyId,
         transactionType: 'investment' as TransactionType,
@@ -112,11 +115,15 @@ export class InvestmentService {
         currency: request.currency,
         feeAmount: platformFee,
         netAmount: netAmount,
-        status: 'pending' as TransactionStatus,
         paymentMethod: request.paymentMethod,
-        paymentReference: request.paymentReference,
         description: `Investment in ${property.name} - ${request.tokenAmount} tokens`
-      });
+      };
+
+      if (request.paymentReference) {
+        transactionData.paymentReference = request.paymentReference;
+      }
+
+      const transaction = await this.transactionModel.createTransaction(transactionData);
 
       // 5. Process payment (mock implementation for now)
       const paymentResult = await this.processPayment({
@@ -138,10 +145,15 @@ export class InvestmentService {
       }
 
       // 6. Update transaction with payment reference
-      await this.transactionModel.updateTransaction(transaction.id, {
-        status: 'processing' as TransactionStatus,
-        paymentReference: paymentResult.paymentReference
-      });
+      const updateData: any = {
+        status: 'processing' as TransactionStatus
+      };
+
+      if (paymentResult.paymentReference) {
+        updateData.paymentReference = paymentResult.paymentReference;
+      }
+
+      await this.transactionModel.updateTransaction(transaction.id, updateData);
 
       // 7. Transfer tokens on Hedera
       const blockchainTxId = await this.transferTokensToInvestor(
@@ -209,6 +221,16 @@ export class InvestmentService {
         blockchainTxId: blockchainTxId
       });
 
+      // Send success notification
+      await this.sendInvestmentNotification(request.userId, 'purchase_success', {
+        propertyName: property.name,
+        tokenAmount: request.tokenAmount,
+        totalAmount: totalAmount,
+        currency: request.currency,
+        investmentId: investment.id,
+        blockchainTxId: blockchainTxId
+      });
+
       return {
         investment,
         transaction: completedTransaction!,
@@ -221,6 +243,15 @@ export class InvestmentService {
         propertyId: request.propertyId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+
+      // Send failure notification
+      const property = await this.propertyModel.findById(request.propertyId);
+      await this.sendInvestmentNotification(request.userId, 'purchase_failed', {
+        propertyName: property?.name || 'Unknown Property',
+        tokenAmount: request.tokenAmount,
+        reason: error instanceof Error ? error.message : 'Unknown error'
+      });
+
       throw error;
     }
   }
@@ -533,6 +564,13 @@ export class InvestmentService {
     try {
       logger.info('Updating investment status', { investmentId, status, userId });
 
+      // Get current investment details for notification
+      const currentInvestment = await this.investmentModel.findById(investmentId);
+      if (!currentInvestment) {
+        return null;
+      }
+
+      const oldStatus = currentInvestment.status;
       const investment = await this.investmentModel.updateById(investmentId, { status });
       
       if (investment && userId) {
@@ -540,13 +578,24 @@ export class InvestmentService {
         await this.complianceService.logInvestmentStatusChange({
           investmentId,
           userId,
-          oldStatus: investment.status,
+          oldStatus: oldStatus,
           newStatus: status,
           timestamp: new Date()
         });
+
+        // Get property details for notification
+        const property = await this.propertyModel.findById(currentInvestment.propertyId);
+        
+        // Send status update notification
+        await this.sendInvestmentNotification(currentInvestment.userId, 'status_update', {
+          propertyName: property?.name || 'Unknown Property',
+          oldStatus: oldStatus,
+          newStatus: status,
+          investmentId: investmentId
+        });
       }
 
-      return investment ? this.investmentModel['mapDatabaseInvestment'](investment) : null;
+      return investment;
 
     } catch (error) {
       logger.error('Error updating investment status', { investmentId, status, error });
@@ -577,15 +626,25 @@ export class InvestmentService {
    */
   private async sendInvestmentNotification(
     userId: string, 
-    type: 'purchase_success' | 'purchase_failed' | 'dividend_received',
+    type: 'purchase_success' | 'purchase_failed' | 'dividend_received' | 'status_update',
     data: any
   ): Promise<void> {
     try {
-      // Mock notification service - in real implementation, integrate with notification service
-      logger.info('Sending investment notification', { userId, type, data });
-      
-      // This would integrate with email/SMS/push notification services
-      // For now, just log the notification
+      // Notification will be sent using the template system
+
+      // Send notification using template system
+
+      await this.notificationService.sendNotification(
+        userId,
+        this.getNotificationTemplateId(type),
+        {
+          ...data,
+          userName: data.userName || 'Investor',
+          userEmail: data.userEmail
+        }
+      );
+
+      logger.info('Investment notification sent successfully', { userId, type });
       
     } catch (error) {
       logger.error('Error sending investment notification', { userId, type, error });
@@ -594,26 +653,143 @@ export class InvestmentService {
   }
 
   /**
-   * Validate user can make investment (compliance check)
+   * Update portfolio values based on current market prices
    */
-  private async validateUserCanInvest(userId: string, amount: number): Promise<boolean> {
+  async updatePortfolioValues(userId: string): Promise<void> {
     try {
-      const user = await this.userModel.findById(userId);
-      if (!user) return false;
+      logger.info('Updating portfolio values', { userId });
 
-      // Check KYC status
-      if (user.kycStatus !== 'approved') return false;
-
-      // Check if user has wallet
-      if (!user.walletAddress) return false;
-
-      // Check compliance limits
-      const complianceCheck = await this.complianceService.checkInvestmentLimits(userId, amount);
-      return complianceCheck.allowed;
+      const investments = await this.investmentModel.getUserInvestments(userId);
+      
+      for (const investment of investments) {
+        const property = await this.propertyModel.findById(investment.propertyId);
+        if (property) {
+          const newCurrentValue = investment.tokenAmount * property.pricePerToken;
+          
+          // Only update if value has changed significantly (more than 1%)
+          const currentValue = investment.currentValue || investment.totalPurchasePrice;
+          const changePercentage = Math.abs((newCurrentValue - currentValue) / currentValue) * 100;
+          
+          if (changePercentage > 1) {
+            await this.investmentModel.updateCurrentValue(investment.id, newCurrentValue);
+            logger.info('Updated investment value', {
+              investmentId: investment.id,
+              oldValue: currentValue,
+              newValue: newCurrentValue,
+              changePercentage: changePercentage.toFixed(2)
+            });
+          }
+        }
+      }
 
     } catch (error) {
-      logger.error('Error validating user investment eligibility', { userId, amount, error });
-      return false;
+      logger.error('Error updating portfolio values', { userId, error });
+      throw error;
     }
   }
+
+  /**
+   * Get detailed investment analytics
+   */
+  async getInvestmentAnalytics(userId: string): Promise<{
+    totalInvestments: number;
+    totalValue: number;
+    totalReturn: number;
+    returnPercentage: number;
+    bestPerformingProperty: {
+      propertyId: string;
+      propertyName: string;
+      returnPercentage: number;
+    } | null;
+    worstPerformingProperty: {
+      propertyId: string;
+      propertyName: string;
+      returnPercentage: number;
+    } | null;
+    monthlyReturns: Array<{
+      month: string;
+      return: number;
+      dividends: number;
+    }>;
+    diversificationScore: number;
+  }> {
+    try {
+      const portfolio = await this.getPortfolio(userId);
+      const performance = await this.getPortfolioPerformance(userId);
+
+      // Find best and worst performing properties
+      let bestPerforming = null;
+      let worstPerforming = null;
+      
+      if (performance.performanceByProperty.length > 0) {
+        const sorted = [...performance.performanceByProperty].sort((a, b) => b.returnPercentage - a.returnPercentage);
+        bestPerforming = sorted[0];
+        worstPerforming = sorted[sorted.length - 1];
+      }
+
+      // Calculate diversification score (based on number of properties and distribution)
+      const propertyCount = portfolio.investments.length;
+      const maxInvestmentPercentage = propertyCount > 0 
+        ? Math.max(...portfolio.investments.map(inv => (inv.totalPurchasePrice / portfolio.totalValue) * 100))
+        : 0;
+      
+      // Diversification score: higher is better (0-100)
+      const diversificationScore = propertyCount > 0 
+        ? Math.min(100, (propertyCount * 20) - (maxInvestmentPercentage - 20))
+        : 0;
+
+      // Mock monthly returns for the last 12 months
+      const monthlyReturns = Array.from({ length: 12 }, (_, i) => {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        return {
+          month: date.toISOString().slice(0, 7), // YYYY-MM format
+          return: Math.random() * 1000 - 500, // Mock return between -500 and 500
+          dividends: Math.random() * 200 // Mock dividends between 0 and 200
+        };
+      }).reverse();
+
+      return {
+        totalInvestments: portfolio.totalInvestments,
+        totalValue: portfolio.totalValue,
+        totalReturn: performance.totalReturn,
+        returnPercentage: performance.returnPercentage,
+        bestPerformingProperty: bestPerforming ? {
+          propertyId: bestPerforming.propertyId,
+          propertyName: bestPerforming.propertyName,
+          returnPercentage: bestPerforming.returnPercentage
+        } : null,
+        worstPerformingProperty: worstPerforming ? {
+          propertyId: worstPerforming.propertyId,
+          propertyName: worstPerforming.propertyName,
+          returnPercentage: worstPerforming.returnPercentage
+        } : null,
+        monthlyReturns,
+        diversificationScore
+      };
+
+    } catch (error) {
+      logger.error('Error calculating investment analytics', { userId, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Get notification template ID based on notification type
+   */
+  private getNotificationTemplateId(type: 'purchase_success' | 'purchase_failed' | 'dividend_received' | 'status_update'): string {
+    switch (type) {
+      case 'purchase_success':
+        return 'investment_confirmation';
+      case 'purchase_failed':
+        return 'investment_confirmation'; // Could create a separate failure template
+      case 'dividend_received':
+        return 'dividend_payment';
+      case 'status_update':
+        return 'property_update';
+      default:
+        return 'investment_confirmation';
+    }
+  }
+
 }

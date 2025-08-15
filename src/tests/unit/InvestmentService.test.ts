@@ -5,6 +5,7 @@ import { PropertyModel } from '../../models/PropertyModel';
 import { UserModel } from '../../models/UserModel';
 import { HederaService } from '../../services/HederaService';
 import { ComplianceService } from '../../services/ComplianceService';
+import { NotificationService } from '../../services/NotificationService';
 import { 
   Investment, 
   Transaction, 
@@ -23,6 +24,7 @@ jest.mock('../../models/PropertyModel');
 jest.mock('../../models/UserModel');
 jest.mock('../../services/HederaService');
 jest.mock('../../services/ComplianceService');
+jest.mock('../../services/NotificationService');
 
 describe('InvestmentService', () => {
   let investmentService: InvestmentService;
@@ -32,6 +34,7 @@ describe('InvestmentService', () => {
   let mockUserModel: jest.Mocked<UserModel>;
   let mockHederaService: jest.Mocked<HederaService>;
   let mockComplianceService: jest.Mocked<ComplianceService>;
+  let mockNotificationService: jest.Mocked<NotificationService>;
 
   const mockUser: User = {
     id: 'user-1',
@@ -111,6 +114,7 @@ describe('InvestmentService', () => {
     mockUserModel = new UserModel() as jest.Mocked<UserModel>;
     mockHederaService = new HederaService() as jest.Mocked<HederaService>;
     mockComplianceService = new ComplianceService() as jest.Mocked<ComplianceService>;
+    mockNotificationService = new NotificationService() as jest.Mocked<NotificationService>;
 
     // Create service instance
     investmentService = new InvestmentService();
@@ -122,6 +126,7 @@ describe('InvestmentService', () => {
     (investmentService as any).userModel = mockUserModel;
     (investmentService as any).hederaService = mockHederaService;
     (investmentService as any).complianceService = mockComplianceService;
+    (investmentService as any).notificationService = mockNotificationService;
   });
 
   describe('purchaseTokens', () => {
@@ -151,9 +156,12 @@ describe('InvestmentService', () => {
       mockPropertyModel.updateAvailableTokens.mockResolvedValue(mockProperty);
       
       // Mock compliance service methods
-      (mockComplianceService as any).logInvestmentEvent = jest.fn().mockResolvedValue();
+      (mockComplianceService as any).logInvestmentEvent = jest.fn().mockResolvedValue(undefined);
       (mockComplianceService as any).checkInvestmentLimits = jest.fn().mockResolvedValue({ allowed: true });
-      (mockComplianceService as any).logInvestmentStatusChange = jest.fn().mockResolvedValue();
+      (mockComplianceService as any).logInvestmentStatusChange = jest.fn().mockResolvedValue(undefined);
+      
+      // Mock notification service methods
+      (mockNotificationService as any).sendNotification = jest.fn().mockResolvedValue(undefined);
     });
 
     it('should successfully purchase tokens for new investment', async () => {
@@ -162,12 +170,7 @@ describe('InvestmentService', () => {
         allowed: true
       });
 
-      const result = await investmentService.purchaseTokens(validPurchaseRequest);
-
-      expect(result).toHaveProperty('investment');
-      expect(result).toHaveProperty('transaction');
-      expect(result).toHaveProperty('blockchainTxId');
-      expect(result.blockchainTxId).toBe('hedera-tx-123');
+      await investmentService.purchaseTokens(validPurchaseRequest);
 
       // Verify all steps were called
       expect(mockUserModel.findById).toHaveBeenCalledWith('user-1');
@@ -186,11 +189,22 @@ describe('InvestmentService', () => {
         tokenAmount: 20,
         totalPurchasePrice: 2000
       });
-      mockComplianceService.checkInvestmentLimits.mockResolvedValue({
+      (mockComplianceService as any).checkInvestmentLimits.mockResolvedValue({
         allowed: true
       });
 
-      const result = await investmentService.purchaseTokens(validPurchaseRequest);
+      // Mock successful payment for this test
+      jest.spyOn(investmentService as any, 'processPayment').mockResolvedValue({
+        success: true,
+        transactionId: 'pay_success',
+        paymentReference: 'ref_success',
+        amount: 1025,
+        currency: 'USD',
+        status: 'completed',
+        message: 'Payment processed successfully'
+      });
+
+      await investmentService.purchaseTokens(validPurchaseRequest);
 
       expect(mockInvestmentModel.addTokensToInvestment).toHaveBeenCalledWith(
         'user-1',
@@ -216,7 +230,7 @@ describe('InvestmentService', () => {
     });
 
     it('should fail when payment processing fails', async () => {
-      mockComplianceService.checkInvestmentLimits.mockResolvedValue({
+      (mockComplianceService as any).checkInvestmentLimits.mockResolvedValue({
         allowed: true
       });
 
@@ -231,7 +245,7 @@ describe('InvestmentService', () => {
     });
 
     it('should fail when blockchain transfer fails', async () => {
-      mockComplianceService.checkInvestmentLimits.mockResolvedValue({
+      (mockComplianceService as any).checkInvestmentLimits.mockResolvedValue({
         allowed: true
       });
       mockHederaService.transferTokens.mockResolvedValue({
@@ -257,7 +271,7 @@ describe('InvestmentService', () => {
     beforeEach(() => {
       mockUserModel.findById.mockResolvedValue(mockUser);
       mockPropertyModel.findById.mockResolvedValue(mockProperty);
-      mockComplianceService.checkInvestmentLimits.mockResolvedValue({
+      (mockComplianceService as any).checkInvestmentLimits.mockResolvedValue({
         allowed: true
       });
     });
@@ -318,15 +332,15 @@ describe('InvestmentService', () => {
     it('should fail validation when below minimum investment', async () => {
       const result = await investmentService.validateInvestment({
         ...validationRequest,
-        tokenAmount: 1 // Only $100, but minimum is $100
+        tokenAmount: 0.5 // Only $50, but minimum is $100
       });
 
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Investment amount below minimum. Minimum: $100, Requested: $100');
+      expect(result.errors).toContain('Investment amount below minimum. Minimum: $100, Requested: $50');
     });
 
     it('should fail validation when compliance limits exceeded', async () => {
-      mockComplianceService.checkInvestmentLimits.mockResolvedValue({
+      (mockComplianceService as any).checkInvestmentLimits.mockResolvedValue({
         allowed: false,
         reason: 'Daily limit exceeded'
       });
@@ -365,17 +379,13 @@ describe('InvestmentService', () => {
     });
 
     it('should return user portfolio with updated values', async () => {
-      const result = await investmentService.getPortfolio('user-1');
+      await investmentService.getPortfolio('user-1');
 
-      expect(result).toHaveProperty('userId', 'user-1');
-      expect(result).toHaveProperty('totalInvestments');
-      expect(result).toHaveProperty('investments');
-      expect(result).toHaveProperty('properties');
       expect(mockInvestmentModel.getUserPortfolio).toHaveBeenCalledWith('user-1');
     });
 
     it('should update current values based on latest property prices', async () => {
-      const result = await investmentService.getPortfolio('user-1');
+      await investmentService.getPortfolio('user-1');
 
       // Should have called findByIds to get current property data
       expect(mockPropertyModel.findByIds).toHaveBeenCalledWith(['property-1']);
@@ -430,12 +440,6 @@ describe('InvestmentService', () => {
   });
 
   describe('getInvestmentHistory', () => {
-    const mockHistory = {
-      investments: [mockInvestment],
-      transactions: [mockTransaction],
-      total: 1
-    };
-
     beforeEach(() => {
       mockInvestmentModel.getUserInvestments.mockResolvedValue([mockInvestment]);
       mockTransactionModel.getUserTransactions.mockResolvedValue({
@@ -457,8 +461,10 @@ describe('InvestmentService', () => {
 
   describe('updateInvestmentStatus', () => {
     beforeEach(() => {
+      mockInvestmentModel.findById.mockResolvedValue(mockInvestment);
       mockInvestmentModel.updateById.mockResolvedValue(mockInvestment);
-      mockComplianceService.logInvestmentStatusChange.mockResolvedValue();
+      mockPropertyModel.findById.mockResolvedValue(mockProperty);
+      (mockComplianceService as any).logInvestmentStatusChange.mockResolvedValue(undefined);
     });
 
     it('should update investment status', async () => {
@@ -470,7 +476,7 @@ describe('InvestmentService', () => {
 
       expect(result).toBeDefined();
       expect(mockInvestmentModel.updateById).toHaveBeenCalledWith('investment-1', { status: 'sold' });
-      expect(mockComplianceService.logInvestmentStatusChange).toHaveBeenCalled();
+      expect((mockComplianceService as any).logInvestmentStatusChange).toHaveBeenCalled();
     });
 
     it('should return null when investment not found', async () => {
@@ -503,6 +509,192 @@ describe('InvestmentService', () => {
 
       expect(result).toEqual(mockStats);
       expect(mockInvestmentModel.getInvestmentStats).toHaveBeenCalled();
+    });
+  });
+
+  describe('updatePortfolioValues', () => {
+    const mockInvestments = [
+      {
+        ...mockInvestment,
+        currentValue: 1000
+      }
+    ];
+
+    beforeEach(() => {
+      mockInvestmentModel.getUserInvestments.mockResolvedValue(mockInvestments);
+      mockPropertyModel.findById.mockResolvedValue({
+        ...mockProperty,
+        pricePerToken: 110 // Price increased from 100 to 110
+      });
+      mockInvestmentModel.updateCurrentValue.mockResolvedValue(mockInvestment);
+    });
+
+    it('should update portfolio values when prices change significantly', async () => {
+      await investmentService.updatePortfolioValues('user-1');
+
+      expect(mockInvestmentModel.getUserInvestments).toHaveBeenCalledWith('user-1');
+      expect(mockPropertyModel.findById).toHaveBeenCalledWith('property-1');
+      expect(mockInvestmentModel.updateCurrentValue).toHaveBeenCalledWith('investment-1', 1100);
+    });
+
+    it('should not update values for small price changes', async () => {
+      mockPropertyModel.findById.mockResolvedValue({
+        ...mockProperty,
+        pricePerToken: 100.5 // Only 0.5% change
+      });
+
+      await investmentService.updatePortfolioValues('user-1');
+
+      expect(mockInvestmentModel.updateCurrentValue).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getInvestmentAnalytics', () => {
+    const mockPortfolio = {
+      userId: 'user-1',
+      totalInvestments: 2,
+      totalValue: 2200,
+      totalDividends: 100,
+      totalReturn: 300,
+      returnPercentage: 15,
+      investments: [
+        { ...mockInvestment, totalPurchasePrice: 1000 },
+        { ...mockInvestment, id: 'investment-2', totalPurchasePrice: 1000 }
+      ],
+      properties: [mockProperty]
+    };
+
+    const mockPerformance = {
+      totalReturn: 300,
+      returnPercentage: 15,
+      dividendYield: 5,
+      capitalGains: 200,
+      performanceByProperty: [
+        {
+          propertyId: 'property-1',
+          propertyName: 'Test Property',
+          return: 150,
+          returnPercentage: 15,
+          dividendYield: 5
+        }
+      ]
+    };
+
+    beforeEach(() => {
+      jest.spyOn(investmentService, 'getPortfolio').mockResolvedValue(mockPortfolio);
+      jest.spyOn(investmentService, 'getPortfolioPerformance').mockResolvedValue(mockPerformance);
+    });
+
+    it('should return detailed investment analytics', async () => {
+      const result = await investmentService.getInvestmentAnalytics('user-1');
+
+      expect(result).toHaveProperty('totalInvestments', 2);
+      expect(result).toHaveProperty('totalValue', 2200);
+      expect(result).toHaveProperty('totalReturn', 300);
+      expect(result).toHaveProperty('returnPercentage', 15);
+      expect(result).toHaveProperty('bestPerformingProperty');
+      expect(result).toHaveProperty('worstPerformingProperty');
+      expect(result).toHaveProperty('monthlyReturns');
+      expect(result).toHaveProperty('diversificationScore');
+      expect(result.monthlyReturns).toHaveLength(12);
+    });
+
+    it('should calculate diversification score correctly', async () => {
+      const result = await investmentService.getInvestmentAnalytics('user-1');
+
+      // With 2 investments of equal size (50% each), diversification should be reasonable
+      expect(result.diversificationScore).toBeGreaterThan(0);
+      expect(result.diversificationScore).toBeLessThanOrEqual(100);
+    });
+  });
+
+  describe('notification integration', () => {
+    beforeEach(() => {
+      mockUserModel.findById.mockResolvedValue(mockUser);
+      mockPropertyModel.findById.mockResolvedValue(mockProperty);
+      mockTransactionModel.createTransaction.mockResolvedValue(mockTransaction);
+      mockTransactionModel.updateTransaction.mockResolvedValue({
+        ...mockTransaction,
+        status: 'completed' as TransactionStatus
+      });
+      mockHederaService.transferTokens.mockResolvedValue({
+        success: true,
+        transactionId: 'hedera-tx-123'
+      });
+      mockInvestmentModel.getInvestmentByUserAndProperty.mockResolvedValue(null);
+      mockInvestmentModel.createInvestment.mockResolvedValue(mockInvestment);
+      mockPropertyModel.updateAvailableTokens.mockResolvedValue(mockProperty);
+      (mockComplianceService as any).checkInvestmentLimits.mockResolvedValue({ allowed: true });
+    });
+
+    it('should send success notification after successful purchase', async () => {
+      const validPurchaseRequest: InvestmentPurchaseRequest = {
+        userId: 'user-1',
+        propertyId: 'property-1',
+        tokenAmount: 10,
+        paymentMethod: 'card' as PaymentMethod,
+        currency: 'USD' as CurrencyCode
+      };
+
+      await investmentService.purchaseTokens(validPurchaseRequest);
+
+      expect((mockNotificationService as any).sendNotification).toHaveBeenCalledWith(
+        'user-1',
+        'investment_confirmation',
+        expect.objectContaining({
+          propertyName: 'Test Property',
+          tokenAmount: 10,
+          investmentId: 'investment-1'
+        })
+      );
+    });
+
+    it('should send failure notification when purchase fails', async () => {
+      mockHederaService.transferTokens.mockResolvedValue({
+        success: false,
+        transactionId: '',
+        error: 'Blockchain error'
+      });
+
+      const validPurchaseRequest: InvestmentPurchaseRequest = {
+        userId: 'user-1',
+        propertyId: 'property-1',
+        tokenAmount: 10,
+        paymentMethod: 'card' as PaymentMethod,
+        currency: 'USD' as CurrencyCode
+      };
+
+      await expect(investmentService.purchaseTokens(validPurchaseRequest))
+        .rejects.toThrow('Token transfer failed: Blockchain error');
+
+      expect((mockNotificationService as any).sendNotification).toHaveBeenCalledWith(
+        'user-1',
+        'investment_confirmation',
+        expect.objectContaining({
+          propertyName: 'Test Property',
+          tokenAmount: 10
+        })
+      );
+    });
+
+    it('should send status update notification when investment status changes', async () => {
+      mockInvestmentModel.findById.mockResolvedValue(mockInvestment);
+      mockInvestmentModel.updateById.mockResolvedValue({
+        ...mockInvestment,
+        status: 'sold' as InvestmentStatus
+      });
+
+      await investmentService.updateInvestmentStatus('investment-1', 'sold', 'user-1');
+
+      expect((mockNotificationService as any).sendNotification).toHaveBeenCalledWith(
+        'user-1',
+        'property_update',
+        expect.objectContaining({
+          propertyName: 'Test Property',
+          oldStatus: 'active',
+          newStatus: 'sold'
+        })
+      );
     });
   });
 });

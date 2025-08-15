@@ -1,0 +1,951 @@
+openapi: 3.0.3
+info:
+  title: GlobalLand API
+  description: |
+    The GlobalLand API provides comprehensive endpoints for real estate tokenization, 
+    investment management, and trading on the Hedera blockchain. This RESTful API 
+    enables developers to build applications that interact with tokenized real estate assets.
+  version: 1.0.0
+  contact:
+    name: GlobalLand Support
+    email: support@globalland.com
+    url: https://docs.globalland.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.globalland.com/api
+    description: Production server
+  - url: https://sandbox-api.globalland.com/api
+    description: Sandbox server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # Authentication Endpoints
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      description: Create a new user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and return JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get new access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required:
+                - refreshToken
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate user session and tokens
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  # Property Endpoints
+  /properties:
+    get:
+      tags:
+        - Properties
+      summary: Get all properties
+      description: Retrieve list of available properties with filtering and pagination
+      security: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: location
+          in: query
+          description: Filter by location
+          schema:
+            type: string
+        - name: minPrice
+          in: query
+          description: Minimum price per token
+          schema:
+            type: number
+            minimum: 0
+        - name: maxPrice
+          in: query
+          description: Maximum price per token
+          schema:
+            type: number
+            minimum: 0
+        - name: propertyType
+          in: query
+          description: Property type filter
+          schema:
+            $ref: '#/components/schemas/PropertyType'
+      responses:
+        '200':
+          description: Properties retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PropertiesResponse'
+
+    post:
+      tags:
+        - Properties
+      summary: Create new property
+      description: Register a new property for tokenization (Property Manager only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PropertyCreation'
+      responses:
+        '201':
+          description: Property created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PropertyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /properties/{propertyId}:
+    get:
+      tags:
+        - Properties
+      summary: Get property details
+      description: Retrieve detailed information about a specific property
+      security: []
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          description: Property ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Property details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PropertyResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Investment Endpoints
+  /investments/portfolio:
+    get:
+      tags:
+        - Investments
+      summary: Get user portfolio
+      description: Retrieve user's investment portfolio with performance metrics
+      responses:
+        '200':
+          description: Portfolio retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioResponse'
+
+  /investments/purchase:
+    post:
+      tags:
+        - Investments
+      summary: Purchase investment
+      description: Purchase tokens for a property investment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvestmentPurchase'
+      responses:
+        '201':
+          description: Investment purchased successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '402':
+          description: Payment required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /investments/history:
+    get:
+      tags:
+        - Investments
+      summary: Get investment history
+      description: Retrieve user's investment transaction history
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Investment history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestmentHistoryResponse'
+
+  # Payment Endpoints
+  /payments/process:
+    post:
+      tags:
+        - Payments
+      summary: Process payment
+      description: Process payment for investment purchase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '200':
+          description: Payment processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '402':
+          description: Payment failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /payments/rates:
+    get:
+      tags:
+        - Payments
+      summary: Get exchange rates
+      description: Retrieve current exchange rates for supported currencies
+      security: []
+      responses:
+        '200':
+          description: Exchange rates retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExchangeRatesResponse'
+
+  /payments/mobile/initiate:
+    post:
+      tags:
+        - Payments
+      summary: Initiate mobile payment
+      description: Start mobile money payment process
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobilePaymentRequest'
+      responses:
+        '200':
+          description: Mobile payment initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobilePaymentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # Authentication Schemas
+    UserRegistration:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          minLength: 8
+          example: "securePassword123"
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+        phoneNumber:
+          type: string
+          example: "+1234567890"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          example: "securePassword123"
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            refreshToken:
+              type: string
+              example: "refresh-token-here"
+            user:
+              $ref: '#/components/schemas/User'
+
+    # User Schema
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+        kycStatus:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED]
+          example: "APPROVED"
+        walletAddress:
+          type: string
+          example: "0.0.123456"
+
+    # Property Schemas
+    PropertyType:
+      type: string
+      enum: [RESIDENTIAL, COMMERCIAL, INDUSTRIAL, LAND, MIXED_USE]
+
+    Address:
+      type: object
+      required:
+        - addressLine1
+        - city
+        - country
+      properties:
+        addressLine1:
+          type: string
+          example: "123 Main Street"
+        addressLine2:
+          type: string
+          example: "Apt 4B"
+        city:
+          type: string
+          example: "Lagos"
+        state:
+          type: string
+          example: "Lagos State"
+        country:
+          type: string
+          example: "Nigeria"
+        postalCode:
+          type: string
+          example: "100001"
+
+    Property:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tokenId:
+          type: string
+        name:
+          type: string
+          example: "Lagos Luxury Apartments"
+        description:
+          type: string
+          example: "Premium residential complex in Victoria Island"
+        address:
+          $ref: '#/components/schemas/Address'
+        valuation:
+          type: number
+          example: 5000000
+        totalTokens:
+          type: integer
+          example: 50000
+        availableTokens:
+          type: integer
+          example: 25000
+        pricePerToken:
+          type: number
+          example: 100
+        expectedYield:
+          type: number
+          example: 0.12
+        propertyType:
+          $ref: '#/components/schemas/PropertyType'
+        images:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [DRAFT, ACTIVE, SOLD_OUT, INACTIVE]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PropertyCreation:
+      type: object
+      required:
+        - name
+        - address
+        - valuation
+        - totalTokens
+        - pricePerToken
+        - propertyType
+      properties:
+        name:
+          type: string
+          example: "Nairobi Office Complex"
+        description:
+          type: string
+          example: "Modern office building in Westlands"
+        address:
+          $ref: '#/components/schemas/Address'
+        valuation:
+          type: number
+          minimum: 1
+          example: 3000000
+        totalTokens:
+          type: integer
+          minimum: 1
+          example: 30000
+        pricePerToken:
+          type: number
+          minimum: 0.01
+          example: 100
+        expectedYield:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.10
+        propertyType:
+          $ref: '#/components/schemas/PropertyType'
+
+    # Investment Schemas
+    Investment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        propertyId:
+          type: string
+          format: uuid
+        propertyName:
+          type: string
+          example: "Lagos Luxury Apartments"
+        tokenAmount:
+          type: integer
+          example: 100
+        investmentValue:
+          type: number
+          example: 10000
+        currentValue:
+          type: number
+          example: 11500
+        totalDividends:
+          type: number
+          example: 800
+        purchaseDate:
+          type: string
+          format: date-time
+        performance:
+          type: object
+          properties:
+            totalReturn:
+              type: number
+              example: 1500
+            totalReturnPercent:
+              type: number
+              example: 15.0
+            annualizedReturn:
+              type: number
+              example: 18.5
+
+    InvestmentPurchase:
+      type: object
+      required:
+        - propertyId
+        - tokenAmount
+        - paymentMethod
+      properties:
+        propertyId:
+          type: string
+          format: uuid
+        tokenAmount:
+          type: integer
+          minimum: 1
+          example: 50
+        paymentMethod:
+          type: string
+          enum: [STRIPE, MOBILE_MONEY, CRYPTO]
+          example: "STRIPE"
+        paymentMethodId:
+          type: string
+          example: "pm_1234567890"
+
+    # Payment Schemas
+    PaymentRequest:
+      type: object
+      required:
+        - amount
+        - currency
+        - paymentMethod
+      properties:
+        amount:
+          type: number
+          minimum: 0.01
+          example: 5000
+        currency:
+          type: string
+          enum: [USD, EUR, KES, NGN, HBAR]
+          example: "USD"
+        paymentMethod:
+          type: string
+          enum: [STRIPE, MOBILE_MONEY, CRYPTO]
+          example: "STRIPE"
+        paymentMethodId:
+          type: string
+          example: "pm_1234567890"
+        propertyId:
+          type: string
+          format: uuid
+        tokenAmount:
+          type: integer
+          example: 50
+
+    MobilePaymentRequest:
+      type: object
+      required:
+        - amount
+        - currency
+        - phoneNumber
+        - provider
+      properties:
+        amount:
+          type: number
+          minimum: 0.01
+          example: 10000
+        currency:
+          type: string
+          enum: [KES, NGN, UGX, TZS]
+          example: "KES"
+        phoneNumber:
+          type: string
+          example: "+254700000000"
+        provider:
+          type: string
+          enum: [M_PESA, MTN_MOBILE_MONEY, AIRTEL_MONEY]
+          example: "M_PESA"
+        propertyId:
+          type: string
+          format: uuid
+        tokenAmount:
+          type: integer
+          example: 100
+
+    # Response Schemas
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "Error message"
+        details:
+          type: object
+
+    PropertiesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            properties:
+              type: array
+              items:
+                $ref: '#/components/schemas/Property'
+            pagination:
+              type: object
+              properties:
+                page:
+                  type: integer
+                  example: 1
+                limit:
+                  type: integer
+                  example: 20
+                total:
+                  type: integer
+                  example: 100
+                pages:
+                  type: integer
+                  example: 5
+
+    PropertyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Property'
+
+    PortfolioResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            totalValue:
+              type: number
+              example: 15000
+            totalInvested:
+              type: number
+              example: 12000
+            totalReturns:
+              type: number
+              example: 3000
+            totalDividends:
+              type: number
+              example: 1500
+            investments:
+              type: array
+              items:
+                $ref: '#/components/schemas/Investment'
+
+    InvestmentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Investment'
+
+    InvestmentHistoryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            investments:
+              type: array
+              items:
+                $ref: '#/components/schemas/Investment'
+            pagination:
+              type: object
+              properties:
+                page:
+                  type: integer
+                limit:
+                  type: integer
+                total:
+                  type: integer
+                pages:
+                  type: integer
+
+    PaymentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            paymentId:
+              type: string
+              example: "pay_123456"
+            status:
+              type: string
+              enum: [PENDING, COMPLETED, FAILED]
+              example: "COMPLETED"
+            amount:
+              type: number
+              example: 5000
+            currency:
+              type: string
+              example: "USD"
+
+    MobilePaymentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            paymentId:
+              type: string
+              example: "mpay_123456"
+            status:
+              type: string
+              enum: [INITIATED, PENDING, COMPLETED, FAILED]
+              example: "INITIATED"
+            checkoutRequestId:
+              type: string
+              example: "ws_CO_123456"
+
+    ExchangeRatesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            USD:
+              type: number
+              example: 1.0
+            EUR:
+              type: number
+              example: 0.85
+            KES:
+              type: number
+              example: 150.0
+            NGN:
+              type: number
+              example: 800.0
+            HBAR:
+              type: number
+              example: 0.05
+            lastUpdated:
+              type: string
+              format: date-time
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    TooManyRequests:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          headers:
+            X-RateLimit-Limit:
+              description: Request limit per time window
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Remaining requests in current window
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Time when rate limit resets
+              schema:
+                type: integer
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Properties
+    description: Property management and tokenization
+  - name: Investments
+    description: Investment purchase and portfolio management
+  - name: Payments
+    description: Payment processing and currency conversion
+  - name: Dividends
+    description: Dividend distribution and history
+  - name: Trading
+    description: Secondary market trading
+  - name: Notifications
+    description: User notifications and preferences

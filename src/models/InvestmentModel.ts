@@ -1,5 +1,5 @@
 import { BaseModel } from './BaseModel';
-import { Investment, InvestmentStatus, Portfolio } from '../types/entities';
+import { Investment, Portfolio } from '../types/entities';
 
 export class InvestmentModel extends BaseModel {
   constructor() {
@@ -251,7 +251,7 @@ export class InvestmentModel extends BaseModel {
       purchasePricePerToken: parseFloat(row.purchase_price_per_token),
       totalPurchasePrice: parseFloat(row.total_purchase_price),
       purchaseDate: row.purchase_date || row.created_at,
-      currentValue: row.current_value ? parseFloat(row.current_value) : undefined,
+      ...(row.current_value && { currentValue: parseFloat(row.current_value) }),
       totalDividendsReceived: parseFloat(row.total_dividends_received || '0'),
       status: row.status,
       blockchainTxId: row.blockchain_tx_id,

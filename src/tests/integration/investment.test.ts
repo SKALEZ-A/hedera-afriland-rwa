@@ -490,4 +490,198 @@ describe('Investment API Integration Tests', () => {
       expect(response.body.error).toBe('Investment not found');
     });
   });
+
+  describe('GET /api/investments/analytics', () => {
+    beforeEach(async () => {
+      // Create test investment for analytics
+      await investmentModel.createInvestment({
+        userId: testUser.id,
+        propertyId: testProperty.id,
+        tokenAmount: 10,
+        purchasePricePerToken: 100
+      });
+    });
+
+    it('should return detailed investment analytics', async () => {
+      const response = await request(app)
+        .get('/api/investments/analytics')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty('totalInvestments');
+      expect(response.body.data).toHaveProperty('totalValue');
+      expect(response.body.data).toHaveProperty('totalReturn');
+      expect(response.body.data).toHaveProperty('returnPercentage');
+      expect(response.body.data).toHaveProperty('bestPerformingProperty');
+      expect(response.body.data).toHaveProperty('worstPerformingProperty');
+      expect(response.body.data).toHaveProperty('monthlyReturns');
+      expect(response.body.data).toHaveProperty('diversificationScore');
+      expect(response.body.data.monthlyReturns).toHaveLength(12);
+    });
+
+    it('should require authentication', async () => {
+      const response = await request(app)
+        .get('/api/investments/analytics');
+
+      expect(response.status).toBe(401);
+      expect(response.body.error).toBe('Authentication required');
+    });
+  });
+
+  describe('POST /api/investments/portfolio/update-values', () => {
+    beforeEach(async () => {
+      // Create test investment
+      await investmentModel.createInvestment({
+        userId: testUser.id,
+        propertyId: testProperty.id,
+        tokenAmount: 10,
+        purchasePricePerToken: 100
+      });
+    });
+
+    it('should update portfolio values successfully', async () => {
+      const response = await request(app)
+        .post('/api/investments/portfolio/update-values')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toBe('Portfolio values updated successfully');
+    });
+
+    it('should require authentication', async () => {
+      const response = await request(app)
+        .post('/api/investments/portfolio/update-values');
+
+      expect(response.status).toBe(401);
+      expect(response.body.error).toBe('Authentication required');
+    });
+  });
+
+  describe('Investment workflow integration', () => {
+    it('should complete full investment workflow with notifications', async () => {
+      // Mock the investment service to track notification calls
+      const mockInvestmentService = InvestmentService.prototype;
+      const purchaseSpy = jest.spyOn(mockInvestmentService, 'purchaseTokens').mockResolvedValue({
+        investment: {
+          id: 'investment-1',
+          userId: testUser.id,
+          propertyId: testProperty.id,
+          tokenAmount: 10,
+          purchasePricePerToken: 100,
+          totalPurchasePrice: 1000,
+          purchaseDate: new Date(),
+          totalDividendsReceived: 0,
+          status: 'active',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        transaction: {
+          id: 'transaction-1',
+          userId: testUser.id,
+          propertyId: testProperty.id,
+          transactionType: 'investment',
+          amount: 1000,
+          currency: 'USD',
+          feeAmount: 25,
+          netAmount: 1025,
+          status: 'completed',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        blockchainTxId: 'hedera-tx-123'
+      });
+
+      // 1. Validate investment
+      const validationResponse = await request(app)
+        .post('/api/investments/validate')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          propertyId: testProperty.id,
+          tokenAmount: 10,
+          paymentMethod: 'card',
+          currency: 'USD'
+        });
+
+      expect(validationResponse.status).toBe(200);
+      expect(validationResponse.body.data.isValid).toBe(true);
+
+      // 2. Purchase tokens
+      const purchaseResponse = await request(app)
+        .post('/api/investments/purchase')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          propertyId: testProperty.id,
+          tokenAmount: 10,
+          paymentMethod: 'card',
+          currency: 'USD'
+        });
+
+      expect(purchaseResponse.status).toBe(201);
+      expect(purchaseResponse.body.success).toBe(true);
+
+      // 3. Check portfolio
+      const portfolioResponse = await request(app)
+        .get('/api/investments/portfolio')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(portfolioResponse.status).toBe(200);
+      expect(portfolioResponse.body.success).toBe(true);
+
+      // 4. Check analytics
+      const analyticsResponse = await request(app)
+        .get('/api/investments/analytics')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(analyticsResponse.status).toBe(200);
+      expect(analyticsResponse.body.success).toBe(true);
+
+      // 5. Check history
+      const historyResponse = await request(app)
+        .get('/api/investments/history')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(historyResponse.status).toBe(200);
+      expect(historyResponse.body.success).toBe(true);
+
+      purchaseSpy.mockRestore();
+    });
+
+    it('should handle investment validation and purchase failure gracefully', async () => {
+      // Test with insufficient tokens
+      const validationResponse = await request(app)
+        .post('/api/investments/validate')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          propertyId: testProperty.id,
+          tokenAmount: 10000, // More than available
+          paymentMethod: 'card',
+          currency: 'USD'
+        });
+
+      expect(validationResponse.status).toBe(200);
+      expect(validationResponse.body.data.isValid).toBe(false);
+      expect(validationResponse.body.data.errors.length).toBeGreaterThan(0);
+
+      // Attempt purchase anyway (should fail)
+      const mockInvestmentService = InvestmentService.prototype;
+      jest.spyOn(mockInvestmentService, 'purchaseTokens').mockRejectedValue(
+        new Error('Investment validation failed: Insufficient tokens available')
+      );
+
+      const purchaseResponse = await request(app)
+        .post('/api/investments/purchase')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          propertyId: testProperty.id,
+          tokenAmount: 10000,
+          paymentMethod: 'card',
+          currency: 'USD'
+        });
+
+      expect(purchaseResponse.status).toBe(400);
+      expect(purchaseResponse.body.error).toBe('Investment validation failed');
+    });
+  });
 });

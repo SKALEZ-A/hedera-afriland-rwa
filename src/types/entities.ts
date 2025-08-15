@@ -308,3 +308,37 @@ export interface PaymentResult {
   message?: string;
   metadata?: Record<string, any>;
 }
+
+// Notification template interface
+export interface NotificationTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  emailTemplate: string;
+  smsTemplate?: string;
+  pushTemplate?: {
+    title: string;
+    body: string;
+    data: Record<string, any>;
+  };
+}
+
+// Notification preferences interface
+export interface NotificationPreferences {
+  email: boolean;
+  sms: boolean;
+  push: boolean;
+  realTime: boolean;
+}
+
+// Notification history interface
+export interface NotificationHistory {
+  id: string;
+  userId: string;
+  templateId: string;
+  channels: string[];
+  status: 'PENDING' | 'DELIVERED' | 'FAILED';
+  createdAt: Date;
+  deliveredAt?: Date;
+  variables: Record<string, any>;
+}

@@ -59,4 +59,18 @@ router.get('/stats', investmentController.getInvestmentStats);
  */
 router.put('/:investmentId/status', investmentController.updateInvestmentStatus);
 
+/**
+ * @route GET /api/investments/analytics
+ * @desc Get detailed investment analytics
+ * @access Private
+ */
+router.get('/analytics', investmentController.getInvestmentAnalytics);
+
+/**
+ * @route POST /api/investments/portfolio/update-values
+ * @desc Update portfolio values based on current market prices
+ * @access Private
+ */
+router.post('/portfolio/update-values', investmentController.updatePortfolioValues);
+
 export default router;

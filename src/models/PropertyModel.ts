@@ -1,5 +1,14 @@
 import { BaseModel } from './BaseModel';
 import { Property, PropertyStatus, PropertyType, Address } from '../types/entities';
+import { logger } from '../utils/logger';
+import { logger } from '../utils/logger';
+import { logger } from '../utils/logger';
+import { logger } from '../utils/logger';
+import { logger } from '../utils/logger';
+import { logger } from '../utils/logger';
+import { logger } from '../utils/logger';
+import { logger } from '../utils/logger';
+import { logger } from '../utils/logger';
 
 export class PropertyModel extends BaseModel {
   constructor() {
@@ -305,4 +314,290 @@ export class PropertyModel extends BaseModel {
 
     return property as Property;
   }
-}
+
+  /**
+   * Find properties by manager ID
+   */
+  static async findByManagerId(managerId: string): Promise<Property[]> {
+    try {
+      const query = `
+        SELECT * FROM properties 
+        WHERE property_manager_id = $1 
+        ORDER BY created_at DESC
+      `;
+      const result = await db.query(query, [managerId]);
+      return result.rows.map(row => this.mapRowToProperty(row));
+    } catch (error) {
+      logger.error('Error finding properties by manager ID:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Record rental income for a property
+   */
+  static async recordRentalIncome(propertyId: string, incomeData: {
+    amount: number
+    period: string
+    description?: string
+    recordedBy: string
+    recordedAt: Date
+  }) {
+    try {
+      const query = `
+        INSERT INTO rental_income (
+          property_id, amount, period, description, recorded_by, recorded_at
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `
+      const values = [
+        propertyId,
+        incomeData.amount,
+        incomeData.period,
+        incomeData.description,
+        incomeData.recordedBy,
+        incomeData.recordedAt
+      ]
+      
+      const result = await db.query(query, values)
+      return result.rows[0]
+    } catch (error) {
+      logger.error('Error recording rental income:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get token holders for a property
+   */
+  static async getTokenHolders(propertyId: string) {
+    try {
+      const query = `
+        SELECT 
+          i.user_id,
+          i.token_amount,
+          i.purchase_date as investment_date,
+          u.email,
+          u.wallet_address
+        FROM investments i
+        JOIN users u ON i.user_id = u.id
+        WHERE i.property_id = $1
+        ORDER BY i.token_amount DESC
+      `
+      const result = await db.query(query, [propertyId])
+      return result.rows
+    } catch (error) {
+      logger.error('Error getting token holders:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create governance proposal
+   */
+  static async createGovernanceProposal(propertyId: string, proposalData: any) {
+    try {
+      const query = `
+        INSERT INTO governance_proposals (
+          property_id, title, description, proposal_type, options, 
+          voting_period, created_by, created_at, expires_at, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *
+      `
+      const values = [
+        propertyId,
+        proposalData.title,
+        proposalData.description,
+        proposalData.proposalType,
+        JSON.stringify(proposalData.options),
+        proposalData.votingPeriod,
+        proposalData.createdBy,
+        proposalData.createdAt,
+        proposalData.expiresAt,
+        proposalData.status
+      ]
+      
+      const result = await db.query(query, values)
+      const proposal = result.rows[0]
+      
+      // Parse options back to array
+      if (proposal.options) {
+        proposal.options = JSON.parse(proposal.options)
+      }
+      
+      return proposal
+    } catch (error) {
+      logger.error('Error creating governance proposal:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get governance proposals for a property
+   */
+  static async getGovernanceProposals(propertyId: string, options?: {
+    status?: string
+    limit?: number
+    offset?: number
+  }) {
+    try {
+      let query = `
+        SELECT * FROM governance_proposals 
+        WHERE property_id = $1
+      `
+      const values: any[] = [propertyId]
+      
+      if (options?.status) {
+        query += ` AND status = $${values.length + 1}`
+        values.push(options.status)
+      }
+      
+      query += ` ORDER BY created_at DESC`
+      
+      if (options?.limit) {
+        query += ` LIMIT $${values.length + 1}`
+        values.push(options.limit)
+      }
+      
+      if (options?.offset) {
+        query += ` OFFSET $${values.length + 1}`
+        values.push(options.offset)
+      }
+      
+      const result = await db.query(query, values)
+      return result.rows.map(row => {
+        if (row.options) {
+          row.options = JSON.parse(row.options)
+        }
+        return row
+      })
+    } catch (error) {
+      logger.error('Error getting governance proposals:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get voting results for a proposal
+   */
+  static async getProposalVotingResults(proposalId: string) {
+    try {
+      const query = `
+        SELECT 
+          option_selected,
+          COUNT(*) as vote_count,
+          SUM(token_weight) as token_weight
+        FROM proposal_votes 
+        WHERE proposal_id = $1
+        GROUP BY option_selected
+        ORDER BY token_weight DESC
+      `
+      const result = await db.query(query, [proposalId])
+      
+      // Also get total participation
+      const totalQuery = `
+        SELECT 
+          COUNT(DISTINCT user_id) as total_voters,
+          SUM(token_weight) as total_token_weight
+        FROM proposal_votes 
+        WHERE proposal_id = $1
+      `
+      const totalResult = await db.query(totalQuery, [proposalId])
+      
+      return {
+        results: result.rows,
+        participation: totalResult.rows[0]
+      }
+    } catch (error) {
+      logger.error('Error getting proposal voting results:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get rental income history
+   */
+  static async getRentalIncomeHistory(propertyId: string, startDate: Date, endDate: Date) {
+    try {
+      const query = `
+        SELECT * FROM rental_income 
+        WHERE property_id = $1 
+        AND recorded_at BETWEEN $2 AND $3
+        ORDER BY recorded_at DESC
+      `
+      const result = await db.query(query, [propertyId, startDate, endDate])
+      return result.rows
+    } catch (error) {
+      logger.error('Error getting rental income history:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get average occupancy rate for a period
+   */
+  static async getAverageOccupancyRate(propertyId: string, startDate: Date, endDate: Date) {
+    try {
+      // This would typically query occupancy tracking table
+      // For now, return the current occupancy rate as placeholder
+      const property = await this.findById(propertyId)
+      return property?.occupancyRate || 0
+    } catch (error) {
+      logger.error('Error getting average occupancy rate:', error);
+      return 0
+    }
+  }
+
+  /**
+   * Get manager activity across properties
+   */
+  static async getManagerActivity(managerId: string, options?: {
+    limit?: number
+    types?: string[]
+  }) {
+    try {
+      let query = `
+        SELECT 
+          'rental_income' as activity_type,
+          ri.property_id,
+          p.name as property_name,
+          ri.amount,
+          ri.period,
+          ri.recorded_at as activity_date,
+          ri.description
+        FROM rental_income ri
+        JOIN properties p ON ri.property_id = p.id
+        WHERE ri.recorded_by = $1
+      `
+      
+      if (options?.types && options.types.includes('rental_income')) {
+        // Add other activity types as needed
+        query += `
+          UNION ALL
+          SELECT 
+            'document_upload' as activity_type,
+            pd.property_id,
+            p.name as property_name,
+            NULL as amount,
+            pd.document_type as period,
+            pd.uploaded_at as activity_date,
+            pd.title as description
+          FROM property_documents pd
+          JOIN properties p ON pd.property_id = p.id
+          WHERE pd.uploaded_by = $1
+        `
+      }
+      
+      query += ` ORDER BY activity_date DESC`
+      
+      if (options?.limit) {
+        query += ` LIMIT ${options.limit}`
+      }
+      
+      const result = await db.query(query, [managerId])
+      return result.rows
+    } catch (error) {
+      logger.error('Error getting manager activity:', error);
+      throw error;
+    }
+  }}
