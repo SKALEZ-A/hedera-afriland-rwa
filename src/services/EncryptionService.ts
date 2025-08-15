@@ -28,7 +28,7 @@ export class EncryptionService {
   static encrypt(plaintext: string): string {
     try {
       const iv = crypto.randomBytes(this.IV_LENGTH);
-      const cipher = crypto.createCipherGCM(this.ALGORITHM, this.encryptionKey, iv);
+      const cipher = crypto.createCipher(this.ALGORITHM, this.encryptionKey, iv);
       cipher.setAAD(Buffer.from('GlobalLand-RWA', 'utf8'));
 
       let encrypted = cipher.update(plaintext, 'utf8', 'hex');
@@ -59,7 +59,7 @@ export class EncryptionService {
       const tag = Buffer.from(parts[1], 'hex');
       const encrypted = parts[2];
 
-      const decipher = crypto.createDecipherGCM(this.ALGORITHM, this.encryptionKey, iv);
+      const decipher = crypto.createDecipher(this.ALGORITHM, this.encryptionKey, iv);
       decipher.setAAD(Buffer.from('GlobalLand-RWA', 'utf8'));
       decipher.setAuthTag(tag);
 
@@ -193,7 +193,7 @@ export class EncryptionService {
   static encryptPropertyData(data: any, propertyKey: string): string {
     const key = crypto.scryptSync(propertyKey, 'property-salt', this.KEY_LENGTH);
     const iv = crypto.randomBytes(this.IV_LENGTH);
-    const cipher = crypto.createCipherGCM(this.ALGORITHM, key, iv);
+    const cipher = crypto.createCipher(this.ALGORITHM, key, iv);
     
     let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
     encrypted += cipher.final('hex');
@@ -216,7 +216,7 @@ export class EncryptionService {
     const tag = Buffer.from(parts[1], 'hex');
     const encrypted = parts[2];
 
-    const decipher = crypto.createDecipherGCM(this.ALGORITHM, key, iv);
+    const decipher = crypto.createDecipher(this.ALGORITHM, key, iv);
     decipher.setAuthTag(tag);
 
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');

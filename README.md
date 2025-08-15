@@ -1,180 +1,198 @@
-# Track 1: Onchain Finance & RWA Tokenization
-## Project: AfriLand - Tokenized Real Estate Investment Platform
+# GlobalLand RWA Platform
 
-### 🎯 Project Overview
-AfriLand is a revolutionary platform that tokenizes African real estate assets, enabling fractional ownership and cross-border investment. Built on Hedera's fast, secure, and low-cost network, it democratizes real estate investment across Africa while providing liquidity to traditionally illiquid assets.
+A comprehensive real estate tokenization platform built on Hedera Hashgraph, enabling fractional ownership of real estate assets through blockchain technology.
 
-### 🌍 Problem Statement
-- **Limited Access**: 90% of Africans cannot afford to invest in prime real estate
-- **Cross-Border Barriers**: Complex regulations prevent pan-African real estate investment
-- **Liquidity Issues**: Real estate investments are traditionally illiquid
-- **Trust Deficit**: Lack of transparent, verifiable property records
-- **Capital Flight**: African wealth often flows to foreign real estate markets
+## 🚀 Features
 
-### 💡 Solution Architecture
+- **Property Tokenization**: Convert real estate assets into tradeable tokens
+- **Investment Management**: Portfolio tracking and investment analytics
+- **Trading Platform**: Peer-to-peer token trading marketplace
+- **Dividend Distribution**: Automated rental income distribution
+- **KYC/AML Compliance**: Built-in compliance and verification
+- **Real-time Notifications**: WebSocket-based live updates
+- **Mobile App**: React Native mobile application
+- **Security**: Enterprise-grade security with encryption and audit logging
 
-#### Core Features
-1. **Property Tokenization Engine**
-   - Convert real estate assets into HTS (Hedera Token Service) tokens
-   - Each property becomes a collection of fungible tokens representing ownership shares
-   - Smart contracts handle dividend distribution and governance
+## 🏗️ Architecture
 
-2. **KYC/AML Compliance Layer**
-   - Integration with African identity verification systems
-   - Automated compliance checks using Hedera Consensus Service
-   - Real-time regulatory reporting
+### Backend (Node.js/TypeScript)
+- Express.js REST API
+- Hedera Hashgraph integration
+- PostgreSQL database
+- Redis caching
+- JWT authentication
+- WebSocket real-time communication
 
-3. **Cross-Border Payment Rails**
-   - Multi-currency support (USD, EUR, local African currencies)
-   - Integration with mobile money systems (M-Pesa, MTN Mobile Money)
-   - Instant settlement using HBAR and stablecoins
+### Frontend (React)
+- Modern React dashboard
+- Material-UI components
+- Real-time data updates
+- Responsive design
 
-4. **Property Verification Oracle**
-   - Integration with land registries across African countries
-   - Drone-based property verification
-   - Legal document verification using HCS timestamps
+### Mobile (React Native)
+- Cross-platform mobile app
+- Native performance
+- Biometric authentication
+- Push notifications
 
-### 🏗️ Technical Implementation
+### Smart Contracts (Solidity)
+- Property tokenization contracts
+- Dividend distribution logic
+- Governance mechanisms
+- Security features
 
-#### Smart Contracts (Solidity on Hedera)
-```solidity
-// Core contracts needed:
-- PropertyToken.sol (HTS token for each property)
-- InvestmentPool.sol (manages fractional ownership)
-- DividendDistributor.sol (rental income distribution)
-- GovernanceContract.sol (property management decisions)
-- ComplianceManager.sol (KYC/AML enforcement)
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 16+
+- PostgreSQL
+- Redis
+- Hedera testnet account
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd globalland-rwa-platform
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+## 📦 Deployment
+
+### Vercel Deployment
+
+This project is optimized for Vercel deployment:
+
+1. **Install Vercel CLI**
+   ```bash
+   npm install -g vercel
+   ```
+
+2. **Deploy**
+   ```bash
+   vercel --prod
+   ```
+
+### Environment Variables
+
+Required environment variables for production:
+
+```bash
+NODE_ENV=production
+JWT_SECRET=your-jwt-secret
+HEDERA_ACCOUNT_ID=your-hedera-account
+HEDERA_PRIVATE_KEY=your-hedera-private-key
+HEDERA_NETWORK=testnet
+DATABASE_URL=your-database-url
+REDIS_URL=your-redis-url
 ```
 
-#### Backend Services
-- **Property Onboarding Service**: Due diligence and tokenization workflow
-- **Payment Processing**: Multi-currency payment handling
-- **Compliance Engine**: Real-time regulatory compliance
-- **Analytics Dashboard**: Investment performance tracking
+## 🔧 Development
 
-#### Frontend Applications
-- **Web Platform**: Full-featured investment dashboard
-- **Mobile App**: Simplified mobile-first experience for African users
-- **Property Manager Portal**: For property owners and managers
+### Available Scripts
 
-### 🎯 Target Market & Use Cases
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run test` - Run tests
+- `npm run lint` - Run ESLint
+- `npm run compile:contracts` - Compile smart contracts
 
-#### Primary Users
-1. **African Diaspora**: 15M+ Africans abroad wanting to invest back home
-2. **Local Middle Class**: Growing African middle class seeking investment opportunities
-3. **International Investors**: Global investors wanting African real estate exposure
-4. **Property Developers**: Seeking alternative funding sources
+### Project Structure
 
-#### Use Cases
-- **Fractional Ownership**: Buy $100 worth of a $1M Lagos property
-- **Cross-Border Investment**: Kenyan investor buying Nigerian real estate
-- **Rental Income Streaming**: Monthly dividend payments in preferred currency
-- **Property Development Funding**: Crowdfunding new developments
+```
+├── api/                 # Vercel serverless functions
+├── src/                 # Backend source code
+│   ├── controllers/     # Route controllers
+│   ├── services/        # Business logic
+│   ├── models/          # Data models
+│   ├── middleware/      # Express middleware
+│   └── utils/           # Utility functions
+├── frontend/            # React frontend
+├── mobile/              # React Native app
+├── contracts/           # Smart contracts
+└── docs/                # Documentation
+```
 
-### 💰 Revenue Model
-- **Transaction Fees**: 2.5% on property purchases
-- **Management Fees**: 1% annual fee on tokenized assets
-- **Premium Services**: Enhanced analytics and priority access
-- **Partnership Revenue**: Revenue sharing with property developers
+## 🔒 Security
 
-### 🚀 Go-to-Market Strategy
+- JWT-based authentication
+- Rate limiting and DDoS protection
+- Input validation and sanitization
+- CORS configuration
+- Security headers
+- Encryption services
+- Audit logging
 
-#### Phase 1: MVP (Hackathon Deliverable)
-- Tokenize 3 sample properties (Nigeria, Kenya, South Africa)
-- Basic investment interface
-- Mock KYC/compliance system
-- Demo mobile money integration
+## 📊 Monitoring
 
-#### Phase 2: Pilot Launch (Post-Hackathon)
-- Partner with 5 property developers
-- Launch in 3 countries
-- Onboard 1,000 early investors
-- Process $1M in tokenized assets
+- Health check endpoints
+- Performance monitoring
+- Error tracking
+- Analytics dashboard
+- Real-time metrics
 
-#### Phase 3: Scale (6-12 months)
-- Expand to 10 African countries
-- $100M in tokenized real estate
-- Mobile app launch
-- Institutional investor onboarding
+## 🧪 Testing
 
-### 🛠️ Technical Stack
+- Unit tests with Jest
+- Integration tests
+- E2E tests
+- Security tests
+- Performance tests
+- Smart contract tests
 
-#### Blockchain Layer
-- **Hedera Hashgraph**: Core blockchain infrastructure
-- **HTS (Hedera Token Service)**: Property tokenization
-- **Smart Contracts**: Investment logic and governance
-- **HCS (Hedera Consensus Service)**: Document timestamping
+## 📱 Mobile App
 
-#### Backend
-- **Node.js/Express**: API services
-- **PostgreSQL**: User and property data
-- **Redis**: Caching and session management
-- **AWS/GCP**: Cloud infrastructure
+The React Native mobile app provides:
+- Property browsing
+- Investment tracking
+- Trading interface
+- Notifications
+- Biometric authentication
 
-#### Frontend
-- **React.js**: Web application
-- **React Native**: Mobile applications
-- **Web3.js**: Blockchain interactions
-- **Chart.js**: Investment analytics
+## 🤝 Contributing
 
-#### Integrations
-- **Property APIs**: MLS systems, land registries
-- **Payment Gateways**: Stripe, Flutterwave, Paystack
-- **Mobile Money**: M-Pesa, MTN Mobile Money APIs
-- **KYC Providers**: Jumio, Onfido, local providers
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
-### 🏆 Competitive Advantages
+## 📄 License
 
-1. **Hedera's Speed**: Sub-3 second transaction finality
-2. **Low Costs**: $0.0001 transaction fees vs $50+ on Ethereum
-3. **African Focus**: Built specifically for African market needs
-4. **Mobile-First**: Optimized for mobile money integration
-5. **Regulatory Compliance**: Built-in compliance from day one
+This project is licensed under the MIT License.
 
-### 📊 Market Opportunity
-- **African Real Estate Market**: $3.2 trillion
-- **Diaspora Remittances**: $95 billion annually
-- **Tokenized Real Estate Global**: Projected $3.7 trillion by 2030
-- **Target Addressable Market**: $50 billion (African real estate suitable for tokenization)
+## 🆘 Support
 
-### 🎯 Success Metrics
-- **Properties Tokenized**: 50+ properties by end of hackathon demo
-- **User Registrations**: 1,000+ during hackathon period
-- **Transaction Volume**: $100K+ in demo transactions
-- **Geographic Coverage**: 5+ African countries represented
-- **Mobile Adoption**: 70%+ of users accessing via mobile
+For support and questions:
+- Check the documentation
+- Review deployment logs
+- Contact the development team
 
-### 🔧 Development Timeline (Hackathon Period)
+## 🌟 Roadmap
 
-#### Week 1-2: Foundation
-- Set up Hedera testnet environment
-- Deploy core smart contracts
-- Build basic property tokenization engine
-- Create user registration and KYC flow
+- [ ] Multi-language support
+- [ ] Advanced analytics
+- [ ] AI-powered property valuation
+- [ ] Cross-chain integration
+- [ ] Institutional features
+- [ ] Mobile wallet integration
 
-#### Week 3-4: Core Features
-- Implement investment purchase flow
-- Build dividend distribution system
-- Create property management dashboard
-- Integrate payment processing
+---
 
-#### Week 5-6: Integration & Polish
-- Mobile money integration
-- Frontend optimization
-- Demo property onboarding
-- Testing and bug fixes
-
-#### Week 7-8: Demo Preparation
-- Create compelling demo scenarios
-- Prepare pitch materials
-- User testing and feedback
-- Final optimizations
-
-### 🎪 Demo Strategy
-- **Live Property Investment**: Show real-time property purchase
-- **Cross-Border Transaction**: Demonstrate international investment
-- **Mobile Money Integration**: Show seamless mobile payment
-- **Dividend Distribution**: Demonstrate automated rental income sharing
-- **Compliance Dashboard**: Show real-time regulatory compliance
-
-This project leverages Hedera's unique advantages while addressing a massive market opportunity in Africa. The combination of real-world asset tokenization with mobile-first design makes it perfectly suited for the African market and current crypto trends.# hedera-afriland-rwa
+Built with ❤️ for the future of real estate investment.

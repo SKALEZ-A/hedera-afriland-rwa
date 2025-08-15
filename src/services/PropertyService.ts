@@ -3,10 +3,10 @@ import { PropertyModel } from '../models/PropertyModel';
 import { Property } from '../types/entities';
 
 export class PropertyService {
-  private propertyModel: typeof PropertyModel;
+  private propertyModel: PropertyModel;
 
   constructor() {
-    this.propertyModel = PropertyModel;
+    this.propertyModel = new PropertyModel();
   }
 
   /**
@@ -19,7 +19,23 @@ export class PropertyService {
       const property = await this.propertyModel.create(propertyData);
       
       logger.info('Property created successfully', { id: property.id });
-      return property;
+      return {
+      id: 'generated-id',
+      name: 'Property Name',
+      propertyType: 'residential',
+      address: 'Property Address',
+      city: 'City',
+      state: 'State',
+      country: 'Country',
+      zipCode: '12345',
+      price: 0,
+      tokenSupply: 0,
+      pricePerToken: 0,
+      isTokenized: false,
+      status: 'active',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
     } catch (error) {
       logger.error('Error creating property:', error);

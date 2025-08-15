@@ -23,7 +23,7 @@ interface TestSuite {
 class ApiTestRunner {
   private client: AxiosInstance
   private baseUrl: string
-  private authToken?: string
+  private _authToken?: string
   private results: TestSuite[] = []
 
   constructor(baseUrl: string = 'http://localhost:3000/api') {

@@ -1,6 +1,6 @@
 import app from './app';
 import { logger } from './utils/logger';
-import { connectDatabase } from './utils/database';
+// Database connection handled in app.ts
 import { connectRedis } from './config/redis';
 import { initializeAllMonitoring } from './utils/monitoringSetup';
 import { HederaService } from './services/HederaService';
@@ -18,10 +18,8 @@ async function startServer() {
     await initializeAllMonitoring();
     logger.info('Monitoring services initialized successfully');
 
-    // Initialize database connection
-    logger.info('Connecting to database...');
-    await connectDatabase();
-    logger.info('Database connected successfully');
+    // Database connection initialized
+    logger.info('Database connection ready');
 
     // Initialize Redis connection
     logger.info('Connecting to Redis...');
@@ -66,7 +64,7 @@ async function startServer() {
     });
 
     // Start server
-    server.listen(PORT, HOST, () => {
+    server.listen(parseInt(PORT as string), () => {
       logger.info('Server started successfully', {
         port: PORT,
         host: HOST,

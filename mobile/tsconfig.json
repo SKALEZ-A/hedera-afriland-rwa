@@ -14,7 +14,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
+    "jsx": "react-native",
     "declaration": false,
     "sourceMap": true,
     "outDir": "./dist",
@@ -37,7 +37,7 @@
       "@navigation/*": ["./src/navigation/*"],
       "@config/*": ["./src/config/*"]
     },
-    "types": ["jest"]
+    "types": ["jest", "react", "react-native"]
   },
   "include": [
     "src/**/*",
@@ -62,5 +62,7 @@
   "typeRoots": [
     "node_modules/@types",
     "src/types"
-  ]
+  ],
+  "types": ["react", "react-native", "jest"],
+  "types": ["react", "react-native", "jest"]
 }

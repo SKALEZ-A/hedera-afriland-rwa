@@ -1,4 +1,3 @@
-import { logger } from './logger'
 import DemoDataService from '../services/DemoDataService'
 import ShowcaseScenarioService from '../services/ShowcaseScenarioService'
 

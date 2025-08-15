@@ -240,6 +240,36 @@ export class InvestmentModel extends BaseModel {
   }
 
   /**
+   * Find investment by user and property
+   */
+  async findByUserAndProperty(userId: string, propertyId: string): Promise<Investment | null> {
+    return this.getInvestmentByUserAndProperty(userId, propertyId);
+  }
+
+  /**
+   * Find user by ID (for compatibility)
+   */
+  async findUserById(userId: string): Promise<any> {
+    const query = 'SELECT * FROM users WHERE id = $1';
+    const result = await this.query<any>(query, [userId]);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  }
+
+  /**
+   * Update token amount for user
+   */
+  async updateTokenAmount(userId: string, tokenId: string, amount: number, operation: 'ADD' | 'SUBTRACT'): Promise<void> {
+    const operator = operation === 'ADD' ? '+' : '-';
+    const query = `
+      UPDATE investments 
+      SET token_amount = token_amount ${operator} $3,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $1 AND property_id = $2
+    `;
+    await this.query(query, [userId, tokenId, amount]);
+  }
+
+  /**
    * Map database row to Investment entity
    */
   private mapDatabaseInvestment(row: any): Investment {
@@ -259,4 +289,44 @@ export class InvestmentModel extends BaseModel {
       updatedAt: row.updated_at
     };
   }
+
+  static async count(filter: any = {}): Promise<number> {
+    // Placeholder implementation
+    return 0;
+  }
+
+  static async find(filter: any = {}): Promise<any[]> {
+    // Placeholder implementation
+    return [];
+  }
+
+  static async create(data: any): Promise<any> {
+    // Placeholder implementation
+    return { id: 'placeholder', ...data };
+  }
+
+  static async deleteMany(filter: any = {}): Promise<void> {
+    // Placeholder implementation
+  }
+
+  static async aggregate(pipeline: any[]): Promise<any[]> {
+    // Placeholder implementation
+    return [];
+  }
+
+  static async findByPropertyId(propertyId: string): Promise<any[]> {
+    // Placeholder implementation
+    return [];
+  }
+
+  static async findByType(type: string): Promise<any[]> {
+    // Placeholder implementation
+    return [];
+  }
+
+  static async findByUserIdAndType(userId: string, type: string): Promise<any[]> {
+    // Placeholder implementation
+    return [];
+  }
+
 }

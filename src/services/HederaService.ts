@@ -452,4 +452,23 @@ export class HederaService {
   close(): void {
     this.client.close();
   }
+
+  async initialize(): Promise<void> {
+    try {
+      console.log('HederaService initialized');
+    } catch (error) {
+      console.error('HederaService initialization failed:', error);
+      throw error;
+    }
+  }
+
+  async getAccountBalance(): Promise<number> {
+    try {
+      return 0; // Placeholder implementation
+    } catch (error) {
+      console.error('Failed to get account balance:', error);
+      return 0;
+    }
+  }
+
 }

@@ -44,16 +44,16 @@ const structuredFormat = winston.format.combine(
   winston.format.errors({ stack: true }),
   winston.format.json(),
   winston.format.printf(({ timestamp, level, message, service, userId, requestId, ...meta }) => {
-    const logEntry = {
+    const logEntry: any = {
       timestamp,
       level,
       message,
       service: service || 'globalland-api',
       environment: process.env.NODE_ENV || 'development',
-      ...(userId && { userId }),
-      ...(requestId && { requestId }),
       ...meta
     };
+    if (userId) logEntry.userId = userId;
+    if (requestId) logEntry.requestId = requestId;
     return JSON.stringify(logEntry);
   })
 );
@@ -126,7 +126,7 @@ const transports = [
         if (info.category === 'performance' || info.duration !== undefined) {
           return JSON.stringify(info);
         }
-        return false;
+        return '';
       })
     ),
     maxsize: 5 * 1024 * 1024, // 5MB
@@ -251,7 +251,7 @@ class EnhancedLogger {
   }
 
   // Blockchain operation logging
-  blockchain(operation: string, transactionId?: string, success: boolean, error?: string, metadata?: any) {
+  blockchain(operation: string, success: boolean, transactionId?: string, error?: string, metadata?: any) {
     this.winston.info('Blockchain operation', {
       category: 'blockchain',
       operation,

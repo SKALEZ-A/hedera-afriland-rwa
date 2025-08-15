@@ -3,6 +3,8 @@
 /// <reference types="react" />
 /// <reference types="react-native" />
 
+// Remove problematic React module declaration - let TypeScript use the official @types/react
+
 declare module 'react-native-splash-screen' {
   export default class SplashScreen {
     static show(): void;

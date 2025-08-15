@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Development files
+src/
+*.ts
+!api/*.ts
+
+# Test files
+test/
+tests/
+**/*.test.*
+**/*.spec.*
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Configuration files
+tsconfig.json
+jest.config.js
+hardhat.config.js
+
+# Environment files
+.env.local
+.env.development
+.env.test
+
+# Logs
+logs/
+*.log
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Mobile app
+mobile/
+
+# Frontend app
+frontend/
+
+# Contracts
+contracts/
+
+# Scripts
+scripts/
+fix-*.js

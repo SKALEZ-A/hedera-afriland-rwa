@@ -2,7 +2,6 @@
 
 import { spawn } from 'child_process'
 import { existsSync } from 'fs'
-import path from 'path'
 import chalk from 'chalk'
 
 interface TestSuite {
@@ -160,26 +159,26 @@ class ComprehensiveTestRunner {
         args.push('--', '--coverage')
       }
 
-      const process = spawn(suite.command, args, {
+      const childProcess = spawn(suite.command, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env, NODE_ENV: 'test' }
       })
 
-      process.stdout.on('data', (data) => {
+      childProcess.stdout.on('data', (data) => {
         output += data.toString()
         if (options.verbose) {
           console.log(chalk.gray(data.toString()))
         }
       })
 
-      process.stderr.on('data', (data) => {
+      childProcess.stderr.on('data', (data) => {
         output += data.toString()
         if (options.verbose) {
           console.error(chalk.red(data.toString()))
         }
       })
 
-      process.on('close', (code) => {
+      childProcess.on('close', (code) => {
         const duration = Date.now() - startTime
         resolve({
           success: code === 0,
@@ -188,7 +187,7 @@ class ComprehensiveTestRunner {
         })
       })
 
-      process.on('error', (error) => {
+      childProcess.on('error', (error) => {
         const duration = Date.now() - startTime
         resolve({
           success: false,

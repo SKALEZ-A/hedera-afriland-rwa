@@ -1,4 +1,3 @@
-import { Request, Response } from 'express';
 import { Pool } from 'pg';
 import axios from 'axios';
 import { logger } from '../utils/logger';
@@ -104,7 +103,7 @@ export class SecurityTestingService {
           severity: 'CRITICAL',
           status: passed ? 'PASS' : 'FAIL',
           description: 'Tests protection against SQL injection attacks',
-          recommendation: passed ? undefined : 'Implement proper input validation and parameterized queries',
+          recommendation: 'Implement proper input validation and parameterized queries',
           details: { payload, responseStatus: response.status }
         });
 
@@ -146,7 +145,7 @@ export class SecurityTestingService {
           severity: 'HIGH',
           status: passed ? 'PASS' : 'FAIL',
           description: 'Tests protection against Cross-Site Scripting attacks',
-          recommendation: passed ? undefined : 'Implement proper input sanitization and output encoding',
+          recommendation: 'Implement proper input sanitization and output encoding',
           details: { payload, responseStatus: response.status }
         });
 
@@ -190,7 +189,7 @@ export class SecurityTestingService {
           severity: 'MEDIUM',
           status: passed ? 'PASS' : 'FAIL',
           description: 'Tests rejection of weak passwords',
-          recommendation: passed ? undefined : 'Implement strong password policy',
+          recommendation: 'Implement strong password policy',
           details: { password, responseStatus: response.status }
         });
 
@@ -271,7 +270,7 @@ export class SecurityTestingService {
           severity: 'HIGH',
           status: passed ? 'PASS' : 'FAIL',
           description: 'Tests protection of endpoints requiring authentication',
-          recommendation: passed ? undefined : 'Implement proper authentication middleware',
+          recommendation: 'Implement proper authentication middleware',
           details: { endpoint, responseStatus: response.status }
         });
 
@@ -301,7 +300,7 @@ export class SecurityTestingService {
         severity: 'CRITICAL',
         status: passed ? 'PASS' : 'FAIL',
         description: 'Tests prevention of privilege escalation',
-        recommendation: passed ? undefined : 'Implement proper role-based access control',
+        recommendation: 'Implement proper role-based access control',
         details: { responseStatus: response.status }
       });
 
@@ -339,7 +338,7 @@ export class SecurityTestingService {
           severity: 'CRITICAL',
           status: isHashed ? 'PASS' : 'FAIL',
           description: 'Tests that passwords are properly hashed',
-          recommendation: isHashed ? undefined : 'Implement bcrypt or similar for password hashing'
+          recommendation: 'Implement bcrypt or similar for password hashing'
         });
       }
     } catch (error) {
@@ -349,7 +348,7 @@ export class SecurityTestingService {
         severity: 'CRITICAL',
         status: 'WARNING',
         description: 'Could not verify password hashing',
-        details: { error: error.message }
+        details: { error: (error as Error).message }
       });
     }
 
@@ -368,7 +367,7 @@ export class SecurityTestingService {
           severity: 'HIGH',
           status: isEncrypted ? 'PASS' : 'FAIL',
           description: 'Tests that sensitive data is encrypted at rest',
-          recommendation: isEncrypted ? undefined : 'Implement encryption for sensitive data'
+          recommendation: 'Implement encryption for sensitive data'
         });
       }
     } catch (error) {
@@ -378,7 +377,7 @@ export class SecurityTestingService {
         severity: 'HIGH',
         status: 'WARNING',
         description: 'Could not verify sensitive data encryption',
-        details: { error: error.message }
+        details: { error: (error as Error).message }
       });
     }
 
@@ -407,7 +406,7 @@ export class SecurityTestingService {
         severity: 'HIGH',
         status: passed ? 'PASS' : 'FAIL',
         description: 'Tests that HTTP requests are redirected to HTTPS',
-        recommendation: passed ? undefined : 'Configure HTTPS redirect',
+        recommendation: 'Configure HTTPS redirect',
         details: { responseStatus: response.status }
       });
 
@@ -443,7 +442,7 @@ export class SecurityTestingService {
           severity: 'MEDIUM',
           status: present ? 'PASS' : 'FAIL',
           description: `Tests presence of ${header} security header`,
-          recommendation: present ? undefined : `Add ${header} security header`,
+          recommendation: `Add ${header} security header`,
           details: { headerValue: headers[header] }
         });
       }
@@ -455,7 +454,7 @@ export class SecurityTestingService {
         severity: 'MEDIUM',
         status: 'WARNING',
         description: 'Could not test security headers',
-        details: { error: error.message }
+        details: { error: (error as Error).message }
       });
     }
 
@@ -487,7 +486,7 @@ export class SecurityTestingService {
         severity: 'HIGH',
         status: isSecure ? 'PASS' : 'FAIL',
         description: `Tests that ${envVar} is set and secure`,
-        recommendation: isSecure ? undefined : `Set secure ${envVar} environment variable`
+        recommendation: `Set secure ${envVar} environment variable`
       });
     }
 
@@ -544,7 +543,7 @@ export class SecurityTestingService {
         severity: 'MEDIUM',
         status: 'WARNING',
         description: 'Could not scan dependencies for vulnerabilities',
-        details: { error: error.message }
+        details: { error: (error as Error).message }
       });
     }
 
@@ -571,7 +570,7 @@ export class SecurityTestingService {
 
     // Count by category
     for (const category of Object.values(SecurityTestCategory)) {
-      summary.byCategory[category] = results.filter(r => r.category === category).length;
+      (summary.byCategory as any)[category] = results.filter(r => r.category === category).length;
     }
 
     return summary;

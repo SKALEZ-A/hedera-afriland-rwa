@@ -7,10 +7,30 @@ export type PropertyType = 'residential' | 'commercial' | 'industrial' | 'land' 
 export type TransactionType = 'investment' | 'dividend' | 'withdrawal' | 'transfer' | 'fee';
 export type TransactionStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
 export type InvestmentStatus = 'active' | 'sold' | 'partial_sold';
-export type OrderType = 'buy' | 'sell';
-export type OrderStatus = 'open' | 'partial_filled' | 'filled' | 'cancelled';
-export type PaymentMethod = 'card' | 'bank_transfer' | 'mobile_money' | 'crypto' | 'hbar';
+export type OrderType = 'BUY' | 'SELL' | 'buy' | 'sell';
+export type OrderStatus = 'open' | 'partial_filled' | 'filled' | 'cancelled' | 'expired';
+export type PaymentMethod = 'STRIPE' | 'MOBILE_MONEY' | 'CRYPTO' | 'card' | 'bank_transfer' | 'mobile_money' | 'crypto' | 'hbar';
 export type CurrencyCode = 'USD' | 'EUR' | 'GBP' | 'NGN' | 'KES' | 'ZAR' | 'GHS' | 'UGX' | 'HBAR';
+
+// Additional missing types
+export type Currency = CurrencyCode;
+export type TokenId = string;
+export type TradeStatus = 'pending' | 'completed' | 'failed' | 'cancelled';
+
+// Order and Trade entities
+export interface Order extends MarketOrder {}
+export interface Trade extends MarketTrade {}
+
+// Exchange rates interface
+export interface ExchangeRates {
+  [key: string]: number;
+}
+
+// Mobile payment request interface
+export interface MobilePaymentRequest extends PaymentRequest {
+  phoneNumber: string;
+  mobileMoneyProvider: string;
+}
 
 // User Entity
 export interface User {
@@ -295,6 +315,12 @@ export interface PaymentRequest {
   paymentMethod: PaymentMethod;
   description?: string;
   metadata?: Record<string, any>;
+  // Additional properties for different payment methods
+  paymentMethodId?: string;
+  propertyId?: string;
+  tokenAmount?: number;
+  phoneNumber?: string;
+  mobileMoneyProvider?: string;
 }
 
 // Payment result interface
@@ -307,6 +333,10 @@ export interface PaymentResult {
   status: TransactionStatus;
   message?: string;
   metadata?: Record<string, any>;
+  // Additional properties
+  timestamp?: Date;
+  error?: string;
+  providerResponse?: any;
 }
 
 // Notification template interface

@@ -636,12 +636,7 @@ export class InvestmentService {
 
       await this.notificationService.sendNotification(
         userId,
-        this.getNotificationTemplateId(type),
-        {
-          ...data,
-          userName: data.userName || 'Investor',
-          userEmail: data.userEmail
-        }
+        type, { userEmail: data.userEmail }
       );
 
       logger.info('Investment notification sent successfully', { userId, type });

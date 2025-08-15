@@ -603,4 +603,98 @@ export class PropertyController {
       });
     }
   };
+
+  getProperties = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const properties = await this.propertyService.getAllProperties();
+      res.json({
+        success: true,
+        data: properties
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch properties',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  getPropertyById = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const property = await this.propertyService.getPropertyById(id);
+      if (!property) {
+        res.status(404).json({
+          success: false,
+          message: 'Property not found'
+        });
+        return;
+      }
+      res.json({
+        success: true,
+        data: property
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch property',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  createProperty = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const propertyData = req.body;
+      const property = await this.propertyService.createProperty(propertyData);
+      res.status(201).json({
+        success: true,
+        data: property
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create property',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  updateProperty = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const property = await this.propertyService.updateProperty(id, updateData);
+      res.json({
+        success: true,
+        data: property
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update property',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  tokenizeProperty = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { tokenSupply, pricePerToken } = req.body;
+      const result = await this.propertyService.tokenizeProperty(id, tokenSupply, pricePerToken);
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to tokenize property',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
 }

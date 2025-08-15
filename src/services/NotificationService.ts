@@ -18,14 +18,14 @@ export interface NotificationResponse {
 }
 
 export class NotificationService {
-  private emailTransporter: nodemailer.Transporter;
+  private emailTransporter!: nodemailer.Transporter;
 
   constructor() {
     this.initializeEmailTransporter();
   }
 
   private initializeEmailTransporter() {
-    this.emailTransporter = nodemailer.createTransporter({
+    this.emailTransporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: false,
@@ -48,7 +48,7 @@ export class NotificationService {
 
       const channels = request.channels || ['email'];
       const sentChannels: string[] = [];
-      let error: string | undefined;
+      let error: string | undefined = undefined;
 
       // Send email notification
       if (channels.includes('email')) {
@@ -166,4 +166,14 @@ export class NotificationService {
       throw error;
     }
   }
+
+  registerWebSocketClient(userId: string, ws: any): void {
+    try {
+      console.log(`WebSocket client registered for user: ${userId}`);
+      // Store WebSocket connection for user
+    } catch (error) {
+      console.error('Failed to register WebSocket client:', error);
+    }
+  }
+
 }

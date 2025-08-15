@@ -207,4 +207,44 @@ export class TransactionModel extends BaseModel {
       updatedAt: row.updated_at
     };
   }
+
+  static async count(filter: any = {}): Promise<number> {
+    // Placeholder implementation
+    return 0;
+  }
+
+  static async find(filter: any = {}): Promise<any[]> {
+    // Placeholder implementation
+    return [];
+  }
+
+  static async create(data: any): Promise<any> {
+    // Placeholder implementation
+    return { id: 'placeholder', ...data };
+  }
+
+  static async deleteMany(filter: any = {}): Promise<void> {
+    // Placeholder implementation
+  }
+
+  static async aggregate(pipeline: any[]): Promise<any[]> {
+    // Placeholder implementation
+    return [];
+  }
+
+  static async findByPropertyId(propertyId: string): Promise<any[]> {
+    // Placeholder implementation
+    return [];
+  }
+
+  static async findByType(type: string): Promise<any[]> {
+    // Placeholder implementation
+    return [];
+  }
+
+  static async findByUserIdAndType(userId: string, type: string): Promise<any[]> {
+    // Placeholder implementation
+    return [];
+  }
+
 }

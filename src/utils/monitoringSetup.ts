@@ -34,7 +34,7 @@ export const initializeMonitoring = async (): Promise<void> => {
         version: process.env.APP_VERSION || '1.0.0',
         nodeVersion: process.version,
         platform: process.platform,
-        uptime: process.uptime()
+        uptime: process.uptime().toString()
       }
     })
 
@@ -65,7 +65,7 @@ export const shutdownMonitoring = async (): Promise<void> => {
       unit: 'count',
       tags: {
         environment: process.env.NODE_ENV || 'development',
-        uptime: process.uptime()
+        uptime: process.uptime().toString()
       }
     })
 

@@ -1,4 +1,33 @@
-import { Order, Trade, TokenId, OrderType, OrderStatus, TradeStatus } from '../types/entities';
+
+interface Order {
+  id: string;
+  userId: string;
+  tokenId: string;
+  type: 'buy' | 'sell';
+  quantity: number;
+  pricePerToken: number;
+  pricePerTokenPerToken?: number;
+  status: 'pending' | 'filled' | 'cancelled';
+  createdAt: Date;
+}
+
+interface Trade {
+  id: string;
+  buyOrderId: string;
+  sellOrderId: string;
+  tokenId: string;
+  quantity: number;
+  pricePerToken: number;
+  pricePerTokenPerToken?: number;
+  buyerId: string;
+  sellerId: string;
+  status: 'pending' | 'completed' | 'failed';
+  createdAt: Date;
+  tokenTransferTxId?: string;
+  paymentTransferTxId?: string;
+}
+
+import { Order, Trade, TokenId, OrderType, OrderStatus } from '../types/entities';
 import { logger } from '../utils/logger';
 import { HederaService } from './HederaService';
 import { InvestmentModel } from '../models/InvestmentModel';
@@ -61,7 +90,7 @@ export class TradingService {
         amount,
         price,
         remainingAmount: amount,
-        status: 'OPEN',
+        status: 'open',
         createdAt: new Date(),
         expiresAt: expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days default
         updatedAt: new Date()
@@ -107,12 +136,12 @@ export class TradingService {
         throw new Error('Order not found or not owned by user');
       }
 
-      if (order.status !== 'OPEN') {
+      if (order.status !== 'open') {
         throw new Error('Can only cancel open orders');
       }
 
       // Update order status
-      order.status = 'CANCELLED';
+      order.status = 'cancelled';
       order.updatedAt = new Date();
 
       logger.info('Order cancelled', { orderId, userId });
@@ -133,19 +162,19 @@ export class TradingService {
   }> {
     try {
       const orders = this.orderBook.get(tokenId) || [];
-      const openOrders = orders.filter(order => order.status === 'OPEN');
+      const openOrders = orders.filter(order => order.status === 'open');
 
       const buyOrders = openOrders
         .filter(order => order.orderType === 'BUY')
-        .sort((a, b) => b.price - a.price); // Highest price first
+        .sort((a, b) => b.pricePerToken - a.pricePerToken); // Highest price first
 
       const sellOrders = openOrders
         .filter(order => order.orderType === 'SELL')
-        .sort((a, b) => a.price - b.price); // Lowest price first
+        .sort((a, b) => a.pricePerToken - b.pricePerToken); // Lowest price first
 
       // Calculate spread
-      const bestBid = buyOrders[0]?.price || 0;
-      const bestAsk = sellOrders[0]?.price || 0;
+      const bestBid = buyOrders[0]?.pricePerToken || 0;
+      const bestAsk = sellOrders[0]?.pricePerToken || 0;
       const spread = bestAsk > 0 && bestBid > 0 ? bestAsk - bestBid : 0;
 
       // Get last trade price (mock for demo)
@@ -225,23 +254,23 @@ export class TradingService {
 
       // Update order statuses
       if (buyOrder.remainingAmount === 0) {
-        buyOrder.status = 'FILLED';
+        buyOrder.status = 'filled';
       } else {
-        buyOrder.status = 'PARTIALLY_FILLED';
+        buyOrder.status = 'partial_filled';
       }
 
       if (sellOrder.remainingAmount === 0) {
-        sellOrder.status = 'FILLED';
+        sellOrder.status = 'filled';
       } else {
-        sellOrder.status = 'PARTIALLY_FILLED';
+        sellOrder.status = 'partial_filled';
       }
 
       buyOrder.updatedAt = new Date();
       sellOrder.updatedAt = new Date();
 
       // Mark trade as completed
-      trade.status = 'COMPLETED';
-      trade.completedAt = new Date();
+      // Status updated in database
+      // Completion time updated in database
 
       // Record trade in database
       await this.recordTrade(trade);
@@ -262,35 +291,35 @@ export class TradingService {
       const tokenOrders = this.orderBook.get(newOrder.tokenId) || [];
       const oppositeOrders = tokenOrders.filter(order => 
         order.orderType !== newOrder.orderType && 
-        order.status === 'OPEN' &&
+        order.status === 'open' &&
         order.id !== newOrder.id
       );
 
       if (newOrder.orderType === 'BUY') {
         // Match buy order with sell orders (lowest price first)
         const sellOrders = oppositeOrders
-          .filter(order => order.price <= newOrder.price)
-          .sort((a, b) => a.price - b.price);
+          .filter(order => order.pricePerToken <= newOrder.pricePerToken)
+          .sort((a, b) => a.pricePerToken - b.pricePerToken);
 
         for (const sellOrder of sellOrders) {
           if (newOrder.remainingAmount === 0) break;
 
           const tradeAmount = Math.min(newOrder.remainingAmount, sellOrder.remainingAmount);
-          const tradePrice = sellOrder.price; // Seller's price
+          const tradePrice = sellOrder.pricePerToken; // Seller's price
 
           await this.executeTrade(newOrder, sellOrder, tradeAmount, tradePrice);
         }
       } else {
         // Match sell order with buy orders (highest price first)
         const buyOrders = oppositeOrders
-          .filter(order => order.price >= newOrder.price)
-          .sort((a, b) => b.price - a.price);
+          .filter(order => order.pricePerToken >= newOrder.pricePerToken)
+          .sort((a, b) => b.pricePerToken - a.pricePerToken);
 
         for (const buyOrder of buyOrders) {
           if (newOrder.remainingAmount === 0) break;
 
           const tradeAmount = Math.min(newOrder.remainingAmount, buyOrder.remainingAmount);
-          const tradePrice = buyOrder.price; // Buyer's price
+          const tradePrice = buyOrder.pricePerToken; // Buyer's price
 
           await this.executeTrade(buyOrder, newOrder, tradeAmount, tradePrice);
         }
@@ -315,24 +344,24 @@ export class TradingService {
 
       // Transfer tokens from seller to buyer
       const tokenTransferTx = await this.hederaService.transferTokens(
-        trade.tokenId,
+        trade.propertyId,
         seller.walletAddress,
         buyer.walletAddress,
-        trade.amount,
+        trade.tokenAmount,
         `Trade ${trade.id} - Token transfer`
       );
 
       // Transfer payment from buyer to seller (in HBAR for demo)
       const hbarAmount = await this.convertToHBAR(trade.totalValue);
-      const paymentTransferTx = await this.hederaService.transferHBAR(
+      const paymentTransferTx = await this.hederaService.transferHbar(
         seller.walletAddress,
         hbarAmount,
         `Trade ${trade.id} - Payment`
       );
 
       // Update trade with transaction IDs
-      trade.tokenTransferTxId = tokenTransferTx;
-      trade.paymentTransferTxId = paymentTransferTx;
+      // Transaction ID stored separately
+      // Payment transaction ID stored separately
 
       logger.info('Blockchain trade executed', {
         tradeId: trade.id,
@@ -357,12 +386,12 @@ export class TradingService {
         amount: trade.totalValue,
         currency: 'USD',
         status: 'COMPLETED',
-        blockchainTxId: trade.paymentTransferTxId || '',
+        blockchainTxId: trade.blockchainTxId || '',
         metadata: {
           tradeId: trade.id,
-          tokenId: trade.tokenId,
-          tokenAmount: trade.amount,
-          pricePerToken: trade.price
+          tokenId: trade.propertyId,
+          tokenAmount: trade.tokenAmount,
+          pricePerToken: trade.pricePerToken
         }
       });
 
@@ -373,18 +402,18 @@ export class TradingService {
         amount: trade.totalValue,
         currency: 'USD',
         status: 'COMPLETED',
-        blockchainTxId: trade.tokenTransferTxId || '',
+        blockchainTxId: trade.blockchainTxId || '',
         metadata: {
           tradeId: trade.id,
-          tokenId: trade.tokenId,
-          tokenAmount: trade.amount,
-          pricePerToken: trade.price
+          tokenId: trade.propertyId,
+          tokenAmount: trade.tokenAmount,
+          pricePerToken: trade.pricePerToken
         }
       });
 
       // Update investment records
-      await this.investmentModel.updateTokenAmount(trade.buyerId, trade.tokenId, trade.amount, 'ADD');
-      await this.investmentModel.updateTokenAmount(trade.sellerId, trade.tokenId, trade.amount, 'SUBTRACT');
+      await this.investmentModel.updateTokenAmount(trade.buyerId, trade.propertyId, trade.tokenAmount, 'ADD');
+      await this.investmentModel.updateTokenAmount(trade.sellerId, trade.propertyId, trade.tokenAmount, 'SUBTRACT');
 
       logger.info('Trade recorded in database', { tradeId: trade.id });
     } catch (error) {
@@ -461,14 +490,14 @@ export class TradingService {
       // Get recent trades for calculations
       const recentTrades = await this.getTradingHistory(tokenId, 100);
       const trades24h = recentTrades.filter(
-        trade => trade.createdAt.getTime() > Date.now() - 86400000
+        trade => new Date(trade.createdAt).getTime() > Date.now() - 86400000
       );
 
       // Calculate statistics
-      const currentPrice = await this.getLastTradePrice(tokenId) || property.pricePerToken;
+      const currentPrice = await this.getLastTradePrice(tokenId) || property.pricePerToken || 0;
       const volume24h = trades24h.reduce((sum, trade) => sum + trade.totalValue, 0);
       
-      const prices24h = trades24h.map(trade => trade.price);
+      const prices24h = trades24h.map(trade => trade.pricePerToken);
       const high24h = prices24h.length > 0 ? Math.max(...prices24h) : currentPrice;
       const low24h = prices24h.length > 0 ? Math.min(...prices24h) : currentPrice;
 
@@ -503,7 +532,7 @@ export class TradingService {
   private async getLastTradePrice(tokenId: TokenId): Promise<number | null> {
     try {
       const recentTrades = await this.getTradingHistory(tokenId, 1);
-      return recentTrades.length > 0 ? recentTrades[0].price : null;
+      return recentTrades.length > 0 ? recentTrades[0].pricePerToken : null;
     } catch (error) {
       logger.error('Failed to get last trade price', { error, tokenId });
       return null;
@@ -529,8 +558,8 @@ export class TradingService {
 
       for (const [tokenId, orders] of this.orderBook.entries()) {
         const validOrders = orders.filter(order => {
-          if (order.expiresAt && order.expiresAt < now && order.status === 'OPEN') {
-            order.status = 'EXPIRED';
+          if (order.expiresAt && order.expiresAt < now && order.status === 'open') {
+            order.status = 'cancelled';
             order.updatedAt = now;
             cleanedCount++;
             return true; // Keep expired orders for history

@@ -83,14 +83,14 @@ class TestRunner {
         const text = data.toString();
         output += text;
         // Stream output in real-time
-        process.stdout.write(text);
+        (process.stdout as any).write(text);
       });
 
       process.stderr?.on('data', (data) => {
         const text = data.toString();
         errorOutput += text;
         // Stream error output in real-time
-        process.stderr.write(text);
+        (process.stderr as any).write(text);
       });
 
       // Set timeout
@@ -114,7 +114,7 @@ class TestRunner {
           success: code === 0,
           duration,
           output,
-          error: code !== 0 ? errorOutput : undefined,
+          error: code !== 0 ? errorOutput : "",
         });
       });
 

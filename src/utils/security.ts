@@ -226,7 +226,7 @@ export class SecurityUtils {
    */
   static generateRateLimitKey(req: Request, identifier?: string): string {
     const ip = this.getClientIP(req);
-    const userAgent = req.get('User-Agent') || 'unknown';
+    const _userAgent = req.get('User-Agent') || 'unknown';
     const userId = (req as any).user?.id;
     
     if (identifier) {
